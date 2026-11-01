@@ -1,0 +1,11 @@
+import { displayWorkDate } from '@/lib/dates';
+import type { Location } from '@/lib/supabase/database.types';
+
+export function CashFoundation({ locations, date, preview = false }: { locations: Location[]; date: string; preview?: boolean }) {
+  return <><div className="page-heading"><div><span className="eyebrow">DE AVOND NETJES AFRONDEN</span><h1>Kassa-afslag<span>.</span></h1><p>Tellen, vastleggen en met een gerust gevoel afsluiten.</p></div><span className="date-badge"><span aria-hidden="true">▦</span>{displayWorkDate(date)}</span></div>
+    <section className="cash-intro panel"><div><span className="section-number">01 / KASSA-AFSLAG</span><h2>Alles op z’n plek.<br /><em>Tot op de cent.</em></h2><p>Hier komt de digitale kassa-afslag voor jouw vestiging.<br className="desktop-break" /> De basis voor je account en beveiligde toegang staat klaar.</p><div className="phase-label"><span /> Fase 1 · Fundament</div></div><div className="receipt" aria-hidden="true"><span className="receipt-os">OS</span><span className="receipt-caption">KASSA-AFSLAG</span><div className="receipt-lines"><span /><span /><span /></div><div className="receipt-total"><span>TOTAAL</span><strong>€ —,—</strong></div><span className="receipt-foot">EEN HELDERE AFSLUITING</span></div></section>
+    <div className="section-heading"><h2>Jouw vestigingen</h2><span>TOEGANG VIA JE ACCOUNT</span></div><div className="location-grid">{locations.map((location, index) => <section className="location-card panel" key={location.id}><div className="location-top"><span className="location-index">0{index + 1}</span><span className="badge">{preview ? 'Voorbeeld' : 'Toegewezen'}</span></div><span className="eyebrow">OS STEAKHOUSE</span><h3>{location.name}</h3><p>De kassa-afslag invullen en centraal bewaren.</p><button className="button secondary" disabled>Afslag starten <span>→</span></button><span className="form-help">Beschikbaar vanaf fase 2</span></section>)}</div>
+    {locations.length === 0 ? <div className="notice">Er is nog geen vestiging aan je account toegewezen. Je beheerder kan dit instellen.</div> : null}
+    <div className="foundation-note"><span aria-hidden="true">◇</span><p><strong>Een veilige start.</strong> Inloggen en authenticatorbeheer vormen de eerste stap. Er worden in deze fase nog geen kassa-afslagen opgeslagen.</p></div>
+  </>;
+}
