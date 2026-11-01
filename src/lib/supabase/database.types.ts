@@ -45,7 +45,17 @@ export type AccessEvent = {
 export type Database = {
   public: {
     Tables: {
-      profiles: Table<Profile>;
+      profiles: Omit<Table<Profile>, "Relationships"> & {
+        Relationships: [
+          {
+            foreignKeyName: "profiles_access_role_id_fkey";
+            columns: ["access_role_id"];
+            isOneToOne: false;
+            referencedRelation: "app_roles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       locations: Table<Location>;
       location_memberships: Table<{ user_id: string; location_id: string }>;
       app_roles: Table<AccessRole>;

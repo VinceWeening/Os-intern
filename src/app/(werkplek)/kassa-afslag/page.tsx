@@ -19,18 +19,14 @@ export default async function CashPage({
   const { supabase, profile, role, user } =
     await requirePermission("cash.open");
   const filters = await searchParams;
-  const { data: locations, error } = await supabase
-    .from("locations")
-    .select("*")
-    .order("name");
-  if (error) throw new Error("LOCATIONS_UNAVAILABLE");
   let query = supabase
     .from("cash_closings")
     .select("*")
     .order("work_date", { ascending: false })
     .order("updated_at", { ascending: false })
     .limit(100);
-  if (locations?.some((l) => l.id === filters.vestiging))
+  // RLS limits both queries to the user's own locations, so they can run together.
+  if (/^[0-9a-f-]{36}$/i.test(filters.vestiging ?? ""))
     query = query.eq("location_id", filters.vestiging!);
   if (
     /^\d{4}-\d{2}-\d{2}$/.test(filters.datum ?? "") &&
@@ -42,7 +38,14 @@ export default async function CashPage({
       "status",
       filters.status as "draft" | "submitted" | "reviewed",
     );
-  const { data: closings, error: closingError } = await query;
+  const [
+    { data: locations, error },
+    { data: closings, error: closingError },
+  ] = await Promise.all([
+    supabase.from("locations").select("*").order("name"),
+    query,
+  ]);
+  if (error) throw new Error("LOCATIONS_UNAVAILABLE");
   if (closingError) throw new Error("CLOSINGS_UNAVAILABLE");
   const labels = {
     draft: "Concept",

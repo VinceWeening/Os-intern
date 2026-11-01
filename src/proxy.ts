@@ -23,8 +23,9 @@ export async function proxy(request: NextRequest) {
         },
       },
     });
-    // Verify the token with Auth; presence of a cookie alone grants no access.
-    await supabase.auth.getUser();
+    // Refreshes an expired session and verifies the JWT signature locally
+    // (asymmetric keys, cached JWKS). Pages still check the user with Auth.
+    await supabase.auth.getClaims();
   }
   response.headers.set('Cache-Control', 'private, no-store');
   return response;

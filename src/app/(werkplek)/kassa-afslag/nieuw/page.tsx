@@ -17,26 +17,22 @@ export default async function NewClosing({
   const { supabase, profile, role, user } =
     await requirePermission("cash.submit");
   const params = await searchParams;
-  const { data: locations, error } = await supabase
-    .from("locations")
-    .select("*")
-    .order("name");
+  const restoring = /^[0-9a-f-]{36}$/i.test(params.herstel ?? "");
+  const id = restoring ? params.herstel! : randomUUID();
+  const [{ data: locations, error }, { data: closing }, { data: lines }] =
+    await Promise.all([
+      supabase.from("locations").select("*").order("name"),
+      restoring
+        ? supabase.from("cash_closings").select("*").eq("id", id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      restoring
+        ? supabase.from("cash_count_lines").select("*").eq("closing_id", id)
+        : Promise.resolve({ data: null }),
+    ]);
   if (error) throw new Error("LOCATIONS_UNAVAILABLE");
-  const id = /^[0-9a-f-]{36}$/i.test(params.herstel ?? "")
-    ? params.herstel!
-    : randomUUID();
   let initial: CashSnapshot | null = null;
-  if (params.herstel) {
-    const { data: closing } = await supabase
-      .from("cash_closings")
-      .select("*")
-      .eq("id", id)
-      .maybeSingle();
+  if (restoring) {
     if (closing) {
-      const { data: lines } = await supabase
-        .from("cash_count_lines")
-        .select("*")
-        .eq("closing_id", id);
       initial = {
         closing,
         counts: Object.fromEntries(

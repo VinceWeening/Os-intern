@@ -16,33 +16,29 @@ export const requireUser = cache(async () => {
 
 export const requireStaff = cache(async () => {
   const { supabase, user } = await requireUser();
-  const [assurance, factors] = await Promise.all([
+  // getUser() above already verified the user with Auth and returned its
+  // factors; the assurance level is read from the session without a request.
+  const factors = (user.factors ?? []).filter(
+    (factor) => factor.factor_type === "totp" && factor.status === "verified",
+  );
+  const [assurance, { data, error }] = await Promise.all([
     supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
-    supabase.auth.mfa.listFactors(),
+    supabase
+      .from("profiles")
+      .select("*, app_roles(*)")
+      .eq("id", user.id)
+      .single(),
   ]);
   if (
     assurance.error ||
-    factors.error ||
-    needsAuthenticator(
-      assurance.data?.currentLevel ?? null,
-      factors.data?.totp.length ?? 0,
-    )
+    needsAuthenticator(assurance.data?.currentLevel ?? null, factors.length)
   ) {
     redirect("/authenticator");
   }
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
-  if (error || !profile?.active) redirect("/geen-toegang");
-  const { data: role, error: roleError } = await supabase
-    .from("app_roles")
-    .select("*")
-    .eq("id", profile.access_role_id)
-    .single();
-  if (roleError || !role) redirect("/geen-toegang");
-  return { supabase, user, profile, role, factors: factors.data!.totp };
+  if (error || !data?.active) redirect("/geen-toegang");
+  const { app_roles: role, ...profile } = data;
+  if (!role) redirect("/geen-toegang");
+  return { supabase, user, profile, role, factors };
 });
 
 export async function requireAdmin() {

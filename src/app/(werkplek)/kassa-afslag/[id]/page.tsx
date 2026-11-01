@@ -22,14 +22,8 @@ export default async function ClosingPage({
     await requirePermission("cash.open");
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
-  const { data: closing, error } = await supabase
-    .from("cash_closings")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
-  if (error) throw new Error("CLOSING_UNAVAILABLE");
-  if (!closing) notFound();
-  const [lines, locations, events] = await Promise.all([
+  const [{ data: closing, error }, lines, locations, events] = await Promise.all([
+    supabase.from("cash_closings").select("*").eq("id", id).maybeSingle(),
     supabase.from("cash_count_lines").select("*").eq("closing_id", id),
     supabase.from("locations").select("*").order("name"),
     supabase
@@ -38,6 +32,8 @@ export default async function ClosingPage({
       .eq("closing_id", id)
       .order("occurred_at", { ascending: false }),
   ]);
+  if (error) throw new Error("CLOSING_UNAVAILABLE");
+  if (!closing) notFound();
   if (lines.error || locations.error || events.error)
     throw new Error("CLOSING_DETAIL_UNAVAILABLE");
   const counts = Object.fromEntries(
