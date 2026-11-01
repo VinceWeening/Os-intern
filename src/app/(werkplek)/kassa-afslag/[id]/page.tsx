@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requirePermission } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
-import { WorkplaceShell } from "@/components/workplace-shell";
 import { CashForm } from "@/components/cash/cash-form";
 import { CashSheet } from "@/components/cash/cash-sheet";
 import { CashHistory } from "@/components/cash/history";
@@ -18,7 +17,7 @@ export default async function ClosingPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { supabase, profile, role, user } =
+  const { supabase, role, user } =
     await requirePermission("cash.open");
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
@@ -56,12 +55,7 @@ export default async function ClosingPage({
     closing.opening_default_cents,
   ).payload;
   return (
-    <WorkplaceShell
-      name={profile.full_name}
-      role={role.name}
-      canManage={role.is_admin}
-      active="cash"
-    >
+    <>
       <div className="page-heading no-print">
         <div>
           <Link className="text-link" href="/kassa-afslag">
@@ -120,6 +114,6 @@ export default async function ClosingPage({
         canReopen={hasPermission(role, "cash.reopen")}
       />
       <CashHistory events={events.data ?? []} />
-    </WorkplaceShell>
+    </>
   );
 }

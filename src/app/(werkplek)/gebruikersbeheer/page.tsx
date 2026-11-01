@@ -1,12 +1,11 @@
 import { requireAdmin } from "@/lib/auth/session";
-import { WorkplaceShell } from "@/components/workplace-shell";
 import { UserManagement } from "@/components/admin/user-management";
 import "@/components/admin/admin.css";
 
 export const metadata = { title: "Gebruikersbeheer" };
 export const dynamic = "force-dynamic";
 export default async function UserManagementPage() {
-  const { supabase, profile, role } = await requireAdmin();
+  const { supabase } = await requireAdmin();
   const [users, roles, locations, events, profiles] = await Promise.all([
     supabase.rpc("admin_list_users", {}),
     supabase.from("app_roles").select("*").order("name"),
@@ -27,12 +26,7 @@ export default async function UserManagementPage() {
   )
     throw new Error("USER_MANAGEMENT_UNAVAILABLE");
   return (
-    <WorkplaceShell
-      name={profile.full_name}
-      role={role.name}
-      canManage
-      active="users"
-    >
+    <>
       <div className="page-heading">
         <div>
           <span className="eyebrow">DE JUISTE TOEGANG VOOR IEDEREEN</span>
@@ -50,6 +44,6 @@ export default async function UserManagementPage() {
         events={events.data ?? []}
         actors={profiles.data ?? []}
       />
-    </WorkplaceShell>
+    </>
   );
 }

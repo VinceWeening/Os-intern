@@ -1,7 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { requirePermission } from "@/lib/auth/session";
-import { hasPermission } from "@/lib/auth/permissions";
-import { WorkplaceShell } from "@/components/workplace-shell";
 import { CashForm } from "@/components/cash/cash-form";
 import { amsterdamWorkDate } from "@/lib/dates";
 import type { CashSnapshot } from "@/lib/supabase/database.types";
@@ -14,7 +12,7 @@ export default async function NewClosing({
 }: {
   searchParams: Promise<{ locatie?: string; herstel?: string }>;
 }) {
-  const { supabase, profile, role, user } =
+  const { supabase, profile, user } =
     await requirePermission("cash.submit");
   const params = await searchParams;
   const restoring = /^[0-9a-f-]{36}$/i.test(params.herstel ?? "");
@@ -46,13 +44,7 @@ export default async function NewClosing({
     locations?.[0]?.id ??
     "";
   return (
-    <WorkplaceShell
-      name={profile.full_name}
-      role={role.name}
-      canManage={role.is_admin}
-      cashAllowed={hasPermission(role, "cash.open")}
-      active="cash"
-    >
+    <>
       <div className="page-heading no-print">
         <div>
           <span className="eyebrow">KASTELLING FORMULIER</span>
@@ -85,6 +77,6 @@ export default async function NewClosing({
           initial={initial}
         />
       )}
-    </WorkplaceShell>
+    </>
   );
 }

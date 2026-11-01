@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { requirePermission } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
-import { WorkplaceShell } from "@/components/workplace-shell";
 import { LocalDrafts } from "@/components/cash/local-drafts";
 import { euro } from "@/lib/cash/model";
 import "./cash.css";
@@ -16,7 +15,7 @@ export default async function CashPage({
     status?: string;
   }>;
 }) {
-  const { supabase, profile, role, user } =
+  const { supabase, role, user } =
     await requirePermission("cash.open");
   const filters = await searchParams;
   let query = supabase
@@ -53,12 +52,7 @@ export default async function CashPage({
     reviewed: "Gecontroleerd",
   };
   return (
-    <WorkplaceShell
-      name={profile.full_name}
-      role={role.name}
-      canManage={role.is_admin}
-      active="cash"
-    >
+    <>
       <div className="page-heading">
         <div>
           <span className="eyebrow">DE AVOND NETJES AFRONDEN</span>
@@ -171,6 +165,6 @@ export default async function CashPage({
         Maximaal de 100 meest recente passende afsluitingen. Gebruik filters om
         gericht te zoeken.
       </p>
-    </WorkplaceShell>
+    </>
   );
 }

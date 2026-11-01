@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { Brand } from "./brand";
 import { SignOut } from "./sign-out";
+import { NavLink, SectionTitle } from "./workplace-nav";
 
 type Props = {
   children: React.ReactNode;
   name: string;
   role: string;
-  active: "cash" | "security" | "users";
+  // Only for the static preview; inside the werkplek layout the URL decides.
+  active?: "cash" | "security" | "users";
   preview?: boolean;
   canManage?: boolean;
   cashAllowed?: boolean;
@@ -21,11 +23,15 @@ export function WorkplaceShell({
   cashAllowed = true,
 }: Props) {
   const title =
-    active === "cash"
-      ? "Kassa-afslag"
-      : active === "users"
-        ? "Gebruikersbeheer"
-        : "Account & beveiliging";
+    active === undefined
+      ? undefined
+      : active === "cash"
+        ? "Kassa-afslag"
+        : active === "users"
+          ? "Gebruikersbeheer"
+          : "Account & beveiliging";
+  const current = (section: NonNullable<Props["active"]>) =>
+    active === undefined ? undefined : active === section;
   const roleLabel =
     role === "manager" ? "Manager" : role === "employee" ? "Medewerker" : role;
   return (
@@ -41,30 +47,33 @@ export function WorkplaceShell({
         <nav aria-label="Hoofdnavigatie">
           <span className="nav-label">DAGELIJKS WERK</span>
           {cashAllowed ? (
-            <Link
+            <NavLink
               href={preview ? "/voorbeeld" : "/kassa-afslag"}
-              aria-current={active === "cash" ? "page" : undefined}
+              match="/kassa-afslag"
+              current={current("cash")}
             >
               <span aria-hidden="true">▤</span> Kassa-afslag
               <span className="nav-dot" />
-            </Link>
+            </NavLink>
           ) : null}
           {canManage ? (
-            <Link
+            <NavLink
               href="/gebruikersbeheer"
-              aria-current={active === "users" ? "page" : undefined}
+              match="/gebruikersbeheer"
+              current={current("users")}
             >
               <span aria-hidden="true">♙</span> Gebruikersbeheer
               <span className="nav-dot" />
-            </Link>
+            </NavLink>
           ) : null}
           <span className="nav-label second">PERSOONLIJK</span>
-          <Link
+          <NavLink
             href={preview ? "/inloggen" : "/beveiliging"}
-            aria-current={active === "security" ? "page" : undefined}
+            match="/beveiliging"
+            current={current("security")}
           >
             <span aria-hidden="true">◇</span> Mijn account
-          </Link>
+          </NavLink>
         </nav>
         <div className="sidebar-footer">
           <div className="private-label">
@@ -90,7 +99,7 @@ export function WorkplaceShell({
         <header className="topbar">
           <span>
             Werkplek <span className="breadcrumb">/</span>
-            <strong>{title}</strong>
+            <SectionTitle title={title} />
           </span>
           <span className="topbar-right">
             <span className="status-dot" />{" "}
