@@ -4,7 +4,62 @@ import {
   calculate,
   euro,
   type CashPayload,
+  type Totals,
 } from "@/lib/cash/model";
+
+// Green for a tip or a closing balance, orange only for a shortage.
+export function resultTone(result: number | null) {
+  return result === null ? "" : result > 0 ? "is-bad" : "is-good";
+}
+function resultLabel(result: number | null) {
+  return result === null
+    ? "Resultaat"
+    : result < 0
+      ? "Fooi"
+      : result > 0
+        ? "Tekort"
+        : "Sluitend";
+}
+function CountsTable({
+  payload,
+  totals,
+}: {
+  payload: CashPayload;
+  totals: Totals;
+}) {
+  return (
+    <table className="cash-table">
+      <thead>
+        <tr>
+          <th>Coupure</th>
+          <th>Aantal</th>
+          <th>Bedrag</th>
+        </tr>
+      </thead>
+      <tbody>
+        {DENOMINATIONS.map((d) => (
+          <tr key={d}>
+            <td>{euro(d)}</td>
+            <td>{payload.counts[d] ?? 0}</td>
+            <td>{euro(d * (payload.counts[d] ?? 0))}</td>
+          </tr>
+        ))}
+        <tr className="total-row">
+          <th colSpan={2}>Totaal geteld</th>
+          <td>{euro(totals.counted)}</td>
+        </tr>
+        <tr>
+          <th colSpan={2}>Startsaldo</th>
+          <td>− {euro(totals.opening)}</td>
+        </tr>
+        <tr className="total-row">
+          <th colSpan={2}>Contant geld</th>
+          <td>{euro(totals.cash)}</td>
+        </tr>
+      </tbody>
+    </table>
+  );
+}
 export function CashSheet({
   payload,
   name,
@@ -17,6 +72,16 @@ export function CashSheet({
   status: string;
 }) {
   const totals = calculate(payload);
+  const field = (key: (typeof MONEY_FIELDS)[number]["key"]) =>
+    MONEY_FIELDS.find((f) => f.key === key)!;
+  const payments = [
+    "ideal_cents",
+    "cash",
+    "pax_cents",
+    "paynl_cents",
+    "shop_vouchers_cents",
+    "redeemed_vouchers_cents",
+  ] as const;
   return (
     <section className="cash-sheet panel">
       <div className="sheet-heading">
@@ -44,62 +109,47 @@ export function CashSheet({
           <dd>{status}</dd>
         </div>
       </dl>
-      <table className="cash-table">
-        <thead>
-          <tr>
-            <th>Coupure</th>
-            <th>Aantal</th>
-            <th>Bedrag</th>
-          </tr>
-        </thead>
-        <tbody>
-          {DENOMINATIONS.map((d) => (
-            <tr key={d}>
-              <td>{euro(d)}</td>
-              <td>{payload.counts[d] ?? 0}</td>
-              <td>{euro(d * (payload.counts[d] ?? 0))}</td>
-            </tr>
-          ))}
-          <tr className="total-row">
-            <th colSpan={2}>Totaal geteld</th>
-            <td>{euro(totals.counted)}</td>
-          </tr>
-          <tr>
-            <th colSpan={2}>Startsaldo</th>
-            <td>{euro(totals.opening)}</td>
-          </tr>
-          <tr className="total-row">
-            <th colSpan={2}>Contant geld</th>
-            <td>{euro(totals.cash)}</td>
-          </tr>
-        </tbody>
-      </table>
+      <div className={`sheet-result ${resultTone(totals.result)}`}>
+        <span>{resultLabel(totals.result)}</span>
+        <strong>
+          {totals.result === null ? "—" : euro(Math.abs(totals.result))}
+        </strong>
+        <small>
+          In te vullen in de kassa: <b>{euro(totals.register)}</b>
+        </small>
+      </div>
       <table className="cash-table payment-sheet">
         <tbody>
-          {MONEY_FIELDS.map((field) => (
-            <tr key={field.key}>
-              <th>{field.label}</th>
-              <td>{euro(payload[field.key])}</td>
-            </tr>
-          ))}
+          <tr>
+            <th>{field("turnover_cents").label}</th>
+            <td>{euro(payload.turnover_cents)}</td>
+          </tr>
+          <tr>
+            <th>+ {field("sold_vouchers_cents").label}</th>
+            <td>{euro(payload.sold_vouchers_cents)}</td>
+          </tr>
           <tr className="total-row">
             <th>Totaal benodigd</th>
             <td>{euro(totals.required)}</td>
           </tr>
-          <tr>
-            <th>Contant geld</th>
-            <td>{euro(totals.cash)}</td>
-          </tr>
-          <tr className="total-row">
-            <th>
-              Resultaat{" "}
-              {totals.result !== null && totals.result < 0
-                ? "· fooi"
-                : totals.result !== null && totals.result > 0
-                  ? "· tekort"
-                  : ""}
-            </th>
-            <td>{euro(totals.result)}</td>
+          {payments.map((key) =>
+            key === "cash" ? (
+              <tr key={key}>
+                <th>− Contant geld</th>
+                <td>{euro(totals.cash)}</td>
+              </tr>
+            ) : (
+              <tr key={key}>
+                <th>− {field(key).label}</th>
+                <td>{euro(payload[key])}</td>
+              </tr>
+            ),
+          )}
+          <tr className={`total-row result-row ${resultTone(totals.result)}`}>
+            <th>{resultLabel(totals.result)}</th>
+            <td>
+              {totals.result === null ? "—" : euro(Math.abs(totals.result))}
+            </td>
           </tr>
           <tr className="total-row">
             <th>In te vullen in de kassa</th>
@@ -107,6 +157,16 @@ export function CashSheet({
           </tr>
         </tbody>
       </table>
+      <details className="sheet-counts no-print">
+        <summary>
+          <span>Geteld geld per coupure</span>
+          <strong>{euro(totals.counted)}</strong>
+        </summary>
+        <CountsTable payload={payload} totals={totals} />
+      </details>
+      <div className="print-only sheet-counts-print">
+        <CountsTable payload={payload} totals={totals} />
+      </div>
       {payload.opening_reason ? (
         <div className="sheet-notes">
           <h3>Reden afwijkend startsaldo</h3>
@@ -126,8 +186,7 @@ export function CashSheet({
         <p>{payload.notes || "Geen opmerkingen."}</p>
       </div>
       <p className="form-help">
-        Negatief resultaat = berekende fooi. Positief resultaat = tekort. In te
-        vullen = PAX + Pay.nl + contant geld + startsaldo.
+        In te vullen in de kassa = PAX + Pay.nl + contant geld + startsaldo.
       </p>
     </section>
   );

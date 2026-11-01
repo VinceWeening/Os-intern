@@ -20,7 +20,7 @@ import {
   localKey,
   type LocalDraft,
 } from "@/lib/cash/local-draft";
-import { saveCash } from "@/lib/cash/actions";
+import { saveCash, setDefaultLocation } from "@/lib/cash/actions";
 import type { CashSnapshot, Location } from "@/lib/supabase/database.types";
 import { CashGlance, CashTotals } from "./totals";
 import { CashSheet } from "./cash-sheet";
@@ -49,6 +49,7 @@ type Props = {
   locations: Location[];
   date: string;
   locationId: string;
+  defaultLocationId?: string | null;
   initial: CashSnapshot | null;
 };
 export function CashForm({
@@ -58,6 +59,7 @@ export function CashForm({
   locations,
   date,
   locationId,
+  defaultLocationId = null,
   initial,
 }: Props) {
   const router = useRouter();
@@ -84,6 +86,8 @@ export function CashForm({
   const [submissionKey, setSubmissionKey] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState<CashSnapshot | null>(null);
   const [countMode, setCountMode] = useState<CountMode>("quantity");
+  const [standardLocation, setStandardLocation] = useState(defaultLocationId);
+  const [savingDefault, setSavingDefault] = useState(false);
   const saving = useRef(false);
   const defaultOpening =
     initial?.closing.opening_default_cents ??
@@ -194,10 +198,7 @@ export function CashForm({
             : "Vul een heel aantal stuks in, maximaal 10.000.",
       }));
   }
-  function setRow(
-    denomination: number,
-    update: (row: CountRow) => CountRow,
-  ) {
+  function setRow(denomination: number, update: (row: CountRow) => CountRow) {
     change((old) => ({
       ...old,
       rows: { ...old.rows, [denomination]: update(old.rows[denomination]) },
@@ -303,6 +304,7 @@ export function CashForm({
       if (final) {
         setSubmitted(result.snapshot);
         setReview(false);
+        router.push("/kassa-afslag?melding=ingediend");
       } else {
         setMessage("Concept centraal opgeslagen.");
         if (!initial) router.replace(`/kassa-afslag/${id}`);
@@ -509,30 +511,70 @@ export function CashForm({
             <legend>1 · Vestiging en werkdatum</legend>
             <div className="cash-fields">
               <div>
-                <label htmlFor="location">Vestiging</label>
-                <select
-                  id="location"
-                  disabled={Boolean(initial) || lockedIdentity}
-                  value={draft.locationId}
-                  onChange={(event) =>
-                    change((old) => ({
-                      ...old,
-                      locationId: event.target.value,
-                      opening: emptyDraft(
-                        event.target.value,
-                        date,
-                        locations.find((l) => l.id === event.target.value)
-                          ?.default_opening_cents ?? 15000,
-                      ).opening,
-                    }))
-                  }
-                >
-                  {locations.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.name}
-                    </option>
-                  ))}
-                </select>
+                {locations.length === 1 ? (
+                  <>
+                    <span className="field-label">Vestiging</span>
+                    <p className="static-field">{locations[0].name}</p>
+                  </>
+                ) : (
+                  <>
+                    <label htmlFor="location">Vestiging</label>
+                    <select
+                      id="location"
+                      disabled={Boolean(initial) || lockedIdentity}
+                      value={draft.locationId}
+                      onChange={(event) =>
+                        change((old) => ({
+                          ...old,
+                          locationId: event.target.value,
+                          opening: emptyDraft(
+                            event.target.value,
+                            date,
+                            locations.find((l) => l.id === event.target.value)
+                              ?.default_opening_cents ?? 15000,
+                          ).opening,
+                        }))
+                      }
+                    >
+                      {locations.map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {l.name}
+                          {l.id === standardLocation ? " · standaard" : ""}
+                        </option>
+                      ))}
+                    </select>
+                    {!initial ? (
+                      draft.locationId === standardLocation ? (
+                        <p className="form-help default-location is-set">
+                          ✓ Je standaardvestiging
+                        </p>
+                      ) : (
+                        <button
+                          type="button"
+                          className="default-location"
+                          disabled={savingDefault}
+                          onClick={async () => {
+                            const chosen = draft.locationId;
+                            setSavingDefault(true);
+                            const result = await setDefaultLocation(
+                              chosen,
+                            ).catch(() => ({
+                              error:
+                                "Standaardvestiging opslaan is niet gelukt.",
+                            }));
+                            setSavingDefault(false);
+                            if (result.error) setMessage(result.error);
+                            else setStandardLocation(chosen);
+                          }}
+                        >
+                          {savingDefault
+                            ? "Bezig…"
+                            : "Maak dit mijn standaardvestiging"}
+                        </button>
+                      )
+                    ) : null}
+                  </>
+                )}
                 {error("location")}
               </div>
               <div>
@@ -591,8 +633,12 @@ export function CashForm({
                 </div>
                 <div className="denomination-head" aria-hidden="true">
                   <span>Coupure</span>
-                  <span>{countMode === "quantity" ? "Aantal" : "Bedrag (€)"}</span>
-                  <span>{countMode === "quantity" ? "Subtotaal" : "Stuks"}</span>
+                  <span>
+                    {countMode === "quantity" ? "Aantal" : "Bedrag (€)"}
+                  </span>
+                  <span>
+                    {countMode === "quantity" ? "Subtotaal" : "Stuks"}
+                  </span>
                 </div>
                 {DENOMINATIONS.map((d, index) => {
                   const row = normalizeRow(d, draft.rows[d]);
@@ -633,7 +679,9 @@ export function CashForm({
                           value={shown}
                           aria-invalid={Boolean(errors[`count-${d}`])}
                           aria-describedby={
-                            errors[`count-${d}`] ? `error-count-${d}` : undefined
+                            errors[`count-${d}`]
+                              ? `error-count-${d}`
+                              : undefined
                           }
                           onFocus={(event) => event.target.select()}
                           onChange={(event) => {
@@ -736,13 +784,13 @@ export function CashForm({
               <fieldset className="panel cash-section" disabled={blocked}>
                 <legend>3 · Omzet en betaalwijzen</legend>
                 <p className="form-help">
-                  Alles staat standaard op € 0,00. Vul alleen in wat vanavond
-                  is gebruikt.
+                  Alles staat standaard op € 0,00. Vul alleen in wat vanavond is
+                  gebruikt.
                   {emptyAmounts ? (
                     <strong className="payment-progress">
                       {" "}
-                      Nog {emptyAmounts} {emptyAmounts === 1 ? "veld" : "velden"}{" "}
-                      leeg.
+                      Nog {emptyAmounts}{" "}
+                      {emptyAmounts === 1 ? "veld" : "velden"} leeg.
                     </strong>
                   ) : null}
                 </p>

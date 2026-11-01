@@ -1,0 +1,115 @@
+.report-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.report-card {
+  padding: 22px;
+}
+.report-card h2,
+.report-days h2 {
+  font-family: Georgia, serif;
+  font-size: 24px;
+  font-weight: 400;
+  margin: 0;
+}
+.report-count {
+  font-size: 11px;
+  color: var(--muted);
+  margin: 6px 0 16px;
+}
+.report-highlights {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.report-highlights > div {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+.report-highlights span {
+  display: block;
+  font-size: 10px;
+  margin-bottom: 6px;
+}
+.report-highlights strong {
+  font-size: 18px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.report-highlights .is-good {
+  border-color: #4a5a36;
+  background: #232a1b;
+  color: #c9d2a8;
+}
+.report-highlights .is-bad {
+  border-color: #7a4837;
+  background: #2f1e18;
+  color: #edb1a1;
+}
+.report-lines {
+  margin: 0;
+}
+.report-lines > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid #ffffff09;
+  font-size: 12px;
+}
+.report-lines dt {
+  color: var(--muted);
+}
+.report-lines dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.report-days {
+  padding: 22px;
+  margin-bottom: 20px;
+}
+.report-table-wrap {
+  overflow-x: auto;
+  margin-top: 14px;
+}
+.report-table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.report-table th {
+  text-align: left;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--muted);
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+}
+.report-table td {
+  padding: 11px 10px;
+  border-bottom: 1px solid #ffffff09;
+}
+.report-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.report-table th:nth-child(n + 4):nth-child(-n + 6) {
+  text-align: right;
+}
+.report-table td.is-good {
+  color: #b8ca98;
+}
+.report-table td.is-bad {
+  color: #edaa8d;
+}
+@media (max-width: 760px) {
+  .report-card,
+  .report-days {
+    padding: 18px 16px;
+  }
+}

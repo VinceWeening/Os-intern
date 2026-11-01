@@ -31,9 +31,11 @@ export function SectionTitle({ title }: { title?: string }) {
       {title ??
         (pathname.startsWith("/gebruikersbeheer")
           ? "Gebruikersbeheer"
-          : pathname.startsWith("/beveiliging")
-            ? "Account & beveiliging"
-            : "Kassa-afslag")}
+          : pathname.startsWith("/rapportage")
+            ? "Rapportage"
+            : pathname.startsWith("/beveiliging")
+              ? "Account & beveiliging"
+              : "Kassa-afslag")}
     </strong>
   );
 }

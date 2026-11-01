@@ -54,7 +54,7 @@
   font-size: 14px;
 }
 .closing-status.submitted {
-  color: #e9be8f;
+  color: #d0c3ad;
 }
 .closing-status.reviewed {
   color: #b8ca98;
@@ -232,7 +232,7 @@
   justify-content: space-between;
   align-items: baseline;
   padding: 16px 0 4px;
-  color: var(--accent);
+  color: var(--text);
 }
 .denomination-total span {
   font-size: 12px;
@@ -370,7 +370,7 @@
   color: #c7d7aa;
 }
 .cash-totals .register-line {
-  color: var(--accent);
+  color: var(--text);
   border-bottom: 0;
   padding-top: 25px;
 }
@@ -417,7 +417,7 @@
   color: #edaa8d;
 }
 .cash-glance .register-line dd {
-  color: var(--accent);
+  color: var(--text);
 }
 .cash-dock-actions {
   display: flex;
@@ -492,8 +492,126 @@
   text-align: right;
 }
 .cash-table .total-row {
-  background: #302619;
-  color: #e8c89c;
+  background: #26221b;
+  color: var(--text);
+}
+.cash-table .result-row.is-good {
+  background: #272e1e;
+  color: #c9d2a8;
+}
+.cash-table .result-row.is-bad {
+  background: #332019;
+  color: #edb1a1;
+}
+.sheet-result {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 4px 16px;
+  margin: 18px 0 22px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #1c1914;
+}
+.sheet-result > span {
+  font-size: 13px;
+}
+.sheet-result > strong {
+  font-family: Georgia, serif;
+  font-size: 30px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+.sheet-result > small {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  color: var(--muted);
+}
+.sheet-result > small b {
+  color: var(--text);
+  font-weight: 500;
+}
+.sheet-result.is-good {
+  border-color: #4a5a36;
+  background: #232a1b;
+  color: #c9d2a8;
+}
+.sheet-result.is-bad {
+  border-color: #7a4837;
+  background: #2f1e18;
+  color: #edb1a1;
+}
+.sheet-counts {
+  margin-top: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.sheet-counts > summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 12px 16px;
+  cursor: pointer;
+  font-size: 12px;
+  list-style: none;
+}
+.sheet-counts > summary::-webkit-details-marker {
+  display: none;
+}
+.sheet-counts > summary > span::before {
+  content: "▸";
+  display: inline-block;
+  margin-right: 10px;
+  color: var(--muted);
+  transition: transform 0.15s;
+}
+.sheet-counts[open] > summary > span::before {
+  transform: rotate(90deg);
+}
+.sheet-counts > summary strong {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.sheet-counts > .cash-table {
+  border-top: 1px solid var(--line);
+}
+.closing-card dd.is-good {
+  color: #b8ca98;
+}
+.closing-card dd.is-bad {
+  color: #edaa8d;
+}
+.field-label {
+  display: block;
+  font-size: 11px;
+  color: #e4d8c4;
+  margin-bottom: 9px;
+}
+.static-field {
+  min-height: 48px;
+  margin: 0;
+  padding: 13px 14px;
+  border: 1px dashed #4c4233;
+  border-radius: 6px;
+  font-size: 16px;
+}
+.default-location {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 11px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.form-help.default-location.is-set {
+  color: #b8ca98;
+  text-decoration: none;
 }
 .payment-sheet {
   margin-top: 22px;

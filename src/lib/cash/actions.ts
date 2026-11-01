@@ -92,6 +92,18 @@ export async function saveCash(input: {
   revalidatePath("/kassa-afslag", "layout");
   return { snapshot: data };
 }
+export async function setDefaultLocation(
+  locationId: string,
+): Promise<{ error?: string }> {
+  const { supabase } = await requirePermission("cash.submit");
+  if (!/^[0-9a-f-]{36}$/i.test(locationId))
+    return { error: "Ongeldige vestiging." };
+  const { error } = await supabase.rpc("set_default_location", {
+    p_location: locationId,
+  });
+  if (error) return { error: "Standaardvestiging opslaan is niet gelukt." };
+  return {};
+}
 export async function transitionCash(
   id: string,
   version: number,

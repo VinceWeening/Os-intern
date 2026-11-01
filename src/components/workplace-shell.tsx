@@ -12,6 +12,7 @@ type Props = {
   preview?: boolean;
   canManage?: boolean;
   cashAllowed?: boolean;
+  canReport?: boolean;
 };
 export function WorkplaceShell({
   children,
@@ -21,6 +22,7 @@ export function WorkplaceShell({
   preview = false,
   canManage = false,
   cashAllowed = true,
+  canReport = false,
 }: Props) {
   const title =
     active === undefined
@@ -53,6 +55,12 @@ export function WorkplaceShell({
               current={current("cash")}
             >
               <span aria-hidden="true">▤</span> Kassa-afslag
+              <span className="nav-dot" />
+            </NavLink>
+          ) : null}
+          {canReport ? (
+            <NavLink href="/rapportage" match="/rapportage">
+              <span aria-hidden="true">◫</span> Rapportage
               <span className="nav-dot" />
             </NavLink>
           ) : null}

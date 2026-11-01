@@ -26,6 +26,8 @@ export function ClosingControls({
     try {
       const result = await transitionCash(id, version, action, reason);
       if (result.error) setError(result.error);
+      else if (action === "review")
+        router.push("/kassa-afslag?melding=gecontroleerd");
       else {
         setOpen(false);
         setReason("");

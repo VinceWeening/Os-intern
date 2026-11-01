@@ -325,3 +325,62 @@ describe('configurable roles and user management', () => {
     await expect(saveUser(EMPLOYEE, EMPLOYEE_ROLE, true, 1, '{99999999-0000-0000-0000-000000000001}')).rejects.toThrow(/INVALID_LOCATION/);
   });
 });
+
+describe('archive window, reports and default location', () => {
+  const READER = '20000000-0000-0000-0000-000000000005';
+  const READER_ROLE = '40000000-0000-0000-0000-000000000009';
+  const RECENT = '30000000-0000-0000-0000-000000000011';
+  const OLD = '30000000-0000-0000-0000-000000000012';
+  const today = "(now() at time zone 'Europe/Amsterdam')::date";
+  beforeEach(async () => {
+    await db.exec('begin');
+    await db.query("insert into public.app_roles(id,name,permissions) values ($1,'Fictieve lezer','{cash.open,cash.read_all}')", [READER_ROLE]);
+    await db.query("insert into auth.users(id,email) values ($1,'lezer@voorbeeld.example')", [READER]);
+    await db.query("insert into public.profiles(id,full_name,role,access_role_id) values ($1,'Testlezer','employee',$2)", [READER, READER_ROLE]);
+    await db.query("insert into auth.mfa_factors(user_id,status,factor_type) values ($1,'verified','totp')", [READER]);
+    await db.query('insert into public.location_memberships values ($1,$2)', [READER, HEILOO]);
+    await db.query(`insert into public.cash_closings(id,location_id,work_date,employee_id,employee_name) values ($1,$2,${today},$3,'Testmedewerker A'),($4,$2,${today}-10,$3,'Testmedewerker A')`, [RECENT, HEILOO, EMPLOYEE, OLD]);
+  });
+  afterEach(async () => { await db.exec('rollback; reset role'); });
+  async function visible() {
+    return (await db.query<{ id: string }>('select id from public.cash_closings where id in ($1,$2) order by work_date desc', [RECENT, OLD])).rows.map(row => row.id);
+  }
+
+  it('shows colleagues only the last two work days without the archive permission', async () => {
+    await become(READER);
+    expect(await visible()).toEqual([RECENT]);
+    expect((await db.query('select * from public.cash_count_lines where closing_id=$1', [OLD])).rows).toHaveLength(0);
+  });
+  it('shows the full archive with cash.archive and keeps own closings visible', async () => {
+    await db.query("update public.app_roles set permissions='{cash.open,cash.read_all,cash.archive}' where id=$1", [READER_ROLE]);
+    await become(READER);
+    expect(await visible()).toEqual([RECENT, OLD]);
+    await become(EMPLOYEE);
+    expect(await visible()).toEqual([RECENT, OLD]);
+  });
+  it('limits the report to roles with cash.reports and returns submitted closings', async () => {
+    await db.query(`insert into public.cash_closings(location_id,work_date,employee_id,employee_name,status,expected_cents,counted_cents,opening_cents,opening_default_cents,turnover_cents,ideal_cents,shop_vouchers_cents,pax_cents,paynl_cents,difference_explanation,first_submitted_at,submission_key)
+      values ($1,${today}-1,$2,'Testmedewerker B','submitted',0,20000,15000,15000,10000,0,0,4000,0,'Fictief tekort',now(),gen_random_uuid())`, [HHW, OTHER]);
+    for (const id of [EMPLOYEE, MANAGER]) {
+      await become(id);
+      await db.exec('savepoint report');
+      await expect(db.query(`select * from public.cash_report(${today}-31,${today})`)).rejects.toThrow(/REPORTS_FORBIDDEN/);
+      await db.exec('rollback to savepoint report');
+    }
+    await become(ADMIN);
+    const rows = (await db.query<{ location_name: string; employee_name: string; result_cents: number; status: string }>(`select * from public.cash_report(${today}-31,${today})`)).rows;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ location_name: 'Heerhugowaard', employee_name: 'Testmedewerker B', result_cents: 1000, status: 'submitted' });
+    await db.exec('savepoint period');
+    await expect(db.query(`select * from public.cash_report(${today},${today}-1)`)).rejects.toThrow(/INVALID_PERIOD/);
+    await db.exec('rollback to savepoint period');
+  });
+  it('only stores a default location the user may access', async () => {
+    await become(EMPLOYEE);
+    await db.exec('savepoint location');
+    await expect(db.query('select public.set_default_location($1)', [HHW])).rejects.toThrow(/LOCATION_FORBIDDEN/);
+    await db.exec('rollback to savepoint location');
+    await db.query('select public.set_default_location($1)', [HEILOO]);
+    expect((await db.query<{ default_location_id: string }>('select default_location_id from public.profiles where id=$1', [EMPLOYEE])).rows[0].default_location_id).toBe(HEILOO);
+  });
+});

@@ -41,6 +41,7 @@ export default async function NewClosing({
   }
   const locationId =
     locations?.find((l) => l.id === params.locatie)?.id ??
+    locations?.find((l) => l.id === profile.default_location_id)?.id ??
     locations?.[0]?.id ??
     "";
   return (
@@ -74,6 +75,7 @@ export default async function NewClosing({
           locations={locations}
           date={amsterdamWorkDate()}
           locationId={locationId}
+          defaultLocationId={profile.default_location_id}
           initial={initial}
         />
       )}

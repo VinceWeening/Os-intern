@@ -3,6 +3,7 @@ import { requirePermission } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { LocalDrafts } from "@/components/cash/local-drafts";
 import { euro } from "@/lib/cash/model";
+import { resultTone } from "@/components/cash/cash-sheet";
 import "./cash.css";
 export const metadata = { title: "Kassa-afslag" };
 export const dynamic = "force-dynamic";
@@ -13,10 +14,10 @@ export default async function CashPage({
     vestiging?: string;
     datum?: string;
     status?: string;
+    melding?: string;
   }>;
 }) {
-  const { supabase, role, user } =
-    await requirePermission("cash.open");
+  const { supabase, role, user } = await requirePermission("cash.open");
   const filters = await searchParams;
   let query = supabase
     .from("cash_closings")
@@ -37,13 +38,11 @@ export default async function CashPage({
       "status",
       filters.status as "draft" | "submitted" | "reviewed",
     );
-  const [
-    { data: locations, error },
-    { data: closings, error: closingError },
-  ] = await Promise.all([
-    supabase.from("locations").select("*").order("name"),
-    query,
-  ]);
+  const [{ data: locations, error }, { data: closings, error: closingError }] =
+    await Promise.all([
+      supabase.from("locations").select("*").order("name"),
+      query,
+    ]);
   if (error) throw new Error("LOCATIONS_UNAVAILABLE");
   if (closingError) throw new Error("CLOSINGS_UNAVAILABLE");
   const labels = {
@@ -69,6 +68,21 @@ export default async function CashPage({
           </Link>
         ) : null}
       </div>
+      {filters.melding === "ingediend" ||
+      filters.melding === "gecontroleerd" ? (
+        <p className="notice success" role="status">
+          {filters.melding === "ingediend"
+            ? "Afslag definitief ingediend. Hij staat hieronder in het overzicht."
+            : "Afslag gemarkeerd als gecontroleerd."}
+        </p>
+      ) : null}
+      {hasPermission(role, "cash.read_all") &&
+      !hasPermission(role, "cash.archive") ? (
+        <p className="form-help archive-hint">
+          Afslagen van collega’s zie je tot 2 dagen terug. Je eigen afslagen
+          blijven altijd zichtbaar.
+        </p>
+      ) : null}
       <LocalDrafts userId={user.id} />
       <form className="panel cash-filters" method="get">
         <div>
@@ -141,7 +155,7 @@ export default async function CashPage({
                         ? "Tekort"
                         : "Resultaat"}
                   </dt>
-                  <dd>
+                  <dd className={resultTone(closing.result_cents)}>
                     {euro(
                       closing.result_cents === null
                         ? null

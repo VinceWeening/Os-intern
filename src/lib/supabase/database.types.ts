@@ -15,6 +15,28 @@ export type Profile = {
   created_at: string;
   access_role_id: string;
   management_version: number;
+  default_location_id: string | null;
+};
+// One submitted or reviewed closing as returned by cash_report.
+export type ReportRow = {
+  id: string;
+  location_id: string;
+  location_name: string;
+  work_date: string;
+  employee_name: string;
+  status: "submitted" | "reviewed";
+  turnover_cents: number;
+  sold_vouchers_cents: number;
+  ideal_cents: number;
+  pax_cents: number;
+  paynl_cents: number;
+  shop_vouchers_cents: number;
+  redeemed_vouchers_cents: number;
+  counted_cents: number;
+  opening_cents: number;
+  cash_cents: number;
+  result_cents: number;
+  register_cents: number;
 };
 export type Location = {
   id: string;
@@ -115,6 +137,14 @@ export type Database = {
           p_reason: string;
         };
         Returns: string;
+      };
+      set_default_location: {
+        Args: { p_location: string | null };
+        Returns: undefined;
+      };
+      cash_report: {
+        Args: { p_from: string; p_to: string };
+        Returns: ReportRow[];
       };
     };
     Enums: {

@@ -21,7 +21,14 @@ export const PERMISSIONS = [
     key: "cash.read_all",
     label: "Afsluitingen van collega’s bekijken",
     description:
-      "Ook afsluitingen van anderen binnen toegestane vestigingen bekijken.",
+      "Afsluitingen van anderen binnen toegestane vestigingen bekijken, tot 2 dagen terug.",
+    available: true,
+  },
+  {
+    key: "cash.archive",
+    label: "Volledig archief bekijken",
+    description:
+      "Alle oudere afsluitingen van toegestane vestigingen bekijken, zonder grens van 2 dagen.",
     available: true,
   },
   {
@@ -34,6 +41,13 @@ export const PERMISSIONS = [
     key: "cash.reopen",
     label: "Afsluitingen heropenen",
     description: "Een afslag met een verplichte reden heropenen.",
+    available: true,
+  },
+  {
+    key: "cash.reports",
+    label: "Rapportage bekijken",
+    description:
+      "Maandoverzicht met omzet, fooi en tekorten per vestiging, inclusief export.",
     available: true,
   },
 ] as const;
