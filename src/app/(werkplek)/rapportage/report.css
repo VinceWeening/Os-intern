@@ -9,7 +9,7 @@
 }
 .report-card h2,
 .report-days h2 {
-  font-family: Georgia, serif;
+  font-family:var(--font-heading);
   font-size: 24px;
   font-weight: 400;
   margin: 0;
@@ -41,14 +41,14 @@
   font-variant-numeric: tabular-nums;
 }
 .report-highlights .is-good {
-  border-color: #4a5a36;
-  background: #232a1b;
-  color: #c9d2a8;
+  border-color: var(--good-line);
+  background: var(--good-bg);
+  color: var(--good);
 }
 .report-highlights .is-bad {
-  border-color: #7a4837;
-  background: #2f1e18;
-  color: #edb1a1;
+  border-color: var(--bad-line);
+  background: var(--bad-bg);
+  color: var(--bad);
 }
 .report-lines {
   margin: 0;
@@ -58,7 +58,7 @@
   justify-content: space-between;
   gap: 12px;
   padding: 9px 0;
-  border-bottom: 1px solid #ffffff09;
+  border-bottom: 1px solid var(--hairline);
   font-size: 12px;
 }
 .report-lines dt {
@@ -92,7 +92,7 @@
 }
 .report-table td {
   padding: 11px 10px;
-  border-bottom: 1px solid #ffffff09;
+  border-bottom: 1px solid var(--hairline);
 }
 .report-table .num {
   text-align: right;
@@ -102,10 +102,10 @@
   text-align: right;
 }
 .report-table td.is-good {
-  color: #b8ca98;
+  color: var(--good);
 }
 .report-table td.is-bad {
-  color: #edaa8d;
+  color: var(--bad);
 }
 @media (max-width: 760px) {
   .report-card,

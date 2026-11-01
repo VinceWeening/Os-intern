@@ -1,6 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/lib/auth/session";
+import { isSharedAccount } from "@/lib/auth/permissions";
 import { validateDraft, type CashDraft } from "./model";
 import type { CashSnapshot } from "@/lib/supabase/database.types";
 
@@ -26,6 +27,9 @@ function errorMessage(error: { code?: string; message?: string }) {
       "Vul een reden van minimaal drie tekens in om te heropenen.",
     FINAL_IDENTITY_LOCKED:
       "Vestiging en werkdatum blijven na indiening vaststaan.",
+    EMPLOYEE_REQUIRED: "Kies eerst je naam bij Medewerker.",
+    EMPLOYEE_FORBIDDEN:
+      "Deze medewerker hoort niet bij deze vestiging. Kies je naam opnieuw.",
   };
   return (
     messages[error.message ?? ""] ??
@@ -39,7 +43,15 @@ export async function saveCash(input: {
   submit: boolean;
   submissionKey: string | null;
 }): Promise<Result> {
-  const { supabase } = await requirePermission("cash.submit");
+  const { supabase, role } = await requirePermission("cash.submit");
+  if (
+    isSharedAccount(role) &&
+    !/^[0-9a-f-]{36}$/i.test(input?.draft?.employeeId ?? "")
+  )
+    return {
+      error: "Kies eerst je naam bij Medewerker.",
+      fields: { employee: "Kies je naam." },
+    };
   if (
     !/^[0-9a-f-]{36}$/i.test(input?.id ?? "") ||
     !Number.isSafeInteger(input.version) ||

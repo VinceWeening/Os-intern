@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Brand } from "./brand";
 import { SignOut } from "./sign-out";
-import { NavLink, SectionTitle } from "./workplace-nav";
+import { NavLink } from "./workplace-nav";
 
 type Props = {
   children: React.ReactNode;
@@ -14,6 +14,37 @@ type Props = {
   cashAllowed?: boolean;
   canReport?: boolean;
 };
+
+// Simple line icons, drawn in the current text colour.
+const ICONS = {
+  cash: "M6 3h12v18l-3-2-3 2-3-2-3 2V3zM9 8h6M9 12h6M9 16h3",
+  report: "M4 20V10M10 20V4M16 20v-7M22 20H2",
+  users: "M16 19v-1a4 4 0 0 0-8 0v1M12 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM20 19v-1a3 3 0 0 0-2.5-3M17 5.5a3 3 0 0 1 0 5",
+  account: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0",
+} as const;
+function Icon({ name }: { name: keyof typeof ICONS }) {
+  return (
+    <svg
+      className="nav-icon"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d={ICONS[name]} />
+    </svg>
+  );
+}
+
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/);
+  return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : ""))
+    .toUpperCase();
+}
+
 export function WorkplaceShell({
   children,
   name,
@@ -24,18 +55,16 @@ export function WorkplaceShell({
   cashAllowed = true,
   canReport = false,
 }: Props) {
-  const title =
-    active === undefined
-      ? undefined
-      : active === "cash"
-        ? "Kassa-afslag"
-        : active === "users"
-          ? "Gebruikersbeheer"
-          : "Account & beveiliging";
   const current = (section: NonNullable<Props["active"]>) =>
     active === undefined ? undefined : active === section;
   const roleLabel =
     role === "manager" ? "Manager" : role === "employee" ? "Medewerker" : role;
+  const today = new Intl.DateTimeFormat("nl-NL", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    timeZone: "Europe/Amsterdam",
+  }).format(new Date());
   return (
     <div className="app-layout">
       <aside className="sidebar">
@@ -45,23 +74,23 @@ export function WorkplaceShell({
         >
           <Brand />
         </Link>
-        <div className="sidebar-caption">DE INTERNE WERKPLEK</div>
         <nav aria-label="Hoofdnavigatie">
-          <span className="nav-label">DAGELIJKS WERK</span>
           {cashAllowed ? (
             <NavLink
               href={preview ? "/voorbeeld" : "/kassa-afslag"}
               match="/kassa-afslag"
               current={current("cash")}
             >
-              <span aria-hidden="true">▤</span> Kassa-afslag
-              <span className="nav-dot" />
+              <Icon name="cash" />
+              <span className="nav-full">Kassa-afslag</span>
+              <span className="nav-short" aria-hidden="true">Afslag</span>
             </NavLink>
           ) : null}
           {canReport ? (
             <NavLink href="/rapportage" match="/rapportage">
-              <span aria-hidden="true">◫</span> Rapportage
-              <span className="nav-dot" />
+              <Icon name="report" />
+              <span className="nav-full">Rapportage</span>
+              <span className="nav-short" aria-hidden="true">Rapport</span>
             </NavLink>
           ) : null}
           {canManage ? (
@@ -70,33 +99,26 @@ export function WorkplaceShell({
               match="/gebruikersbeheer"
               current={current("users")}
             >
-              <span aria-hidden="true">♙</span> Gebruikersbeheer
-              <span className="nav-dot" />
+              <Icon name="users" />
+              <span className="nav-full">Gebruikersbeheer</span>
+              <span className="nav-short" aria-hidden="true">Gebruikers</span>
             </NavLink>
           ) : null}
-          <span className="nav-label second">PERSOONLIJK</span>
+          <span className="nav-separator" aria-hidden="true" />
           <NavLink
             href={preview ? "/inloggen" : "/beveiliging"}
             match="/beveiliging"
             current={current("security")}
           >
-            <span aria-hidden="true">◇</span> Mijn account
+            <Icon name="account" />
+              <span className="nav-full">Mijn account</span>
+              <span className="nav-short" aria-hidden="true">Account</span>
           </NavLink>
         </nav>
         <div className="sidebar-footer">
-          <div className="private-label">
-            <span /> Besloten teamomgeving
-          </div>
-          <div className="profile">
-            <span className="avatar">{name.slice(0, 1).toUpperCase()}</span>
-            <div>
-              <strong>{name}</strong>
-              <small>{roleLabel}</small>
-            </div>
-          </div>
           {preview ? (
-            <Link href="/inloggen" className="text-link">
-              Terug naar inloggen →
+            <Link href="/inloggen" className="button secondary">
+              Terug naar inloggen
             </Link>
           ) : (
             <SignOut />
@@ -105,14 +127,22 @@ export function WorkplaceShell({
       </aside>
       <div className="workplace">
         <header className="topbar">
-          <span>
-            Werkplek <span className="breadcrumb">/</span>
-            <SectionTitle title={title} />
+          <span className="topbar-date">
+            {preview ? "Ontwerpvoorbeeld" : today}
           </span>
-          <span className="topbar-right">
-            <span className="status-dot" />{" "}
-            {preview ? "Ontwerpvoorbeeld" : "Authenticator bevestigd"}
-          </span>
+          <Link
+            href={preview ? "/inloggen" : "/beveiliging"}
+            className="user-chip"
+            aria-label={`Mijn account: ${name}, ${roleLabel}`}
+          >
+            <span className="user-chip-text">
+              <strong>{name}</strong>
+              <small>{roleLabel}</small>
+            </span>
+            <span className="avatar" aria-hidden="true">
+              {initials(name)}
+            </span>
+          </Link>
         </header>
         {preview ? (
           <div className="preview-banner">
@@ -123,10 +153,8 @@ export function WorkplaceShell({
         <main id="inhoud" className="content">
           {children}
           <footer className="content-footer">
-            <span>
-              OS STEAKHOUSE <span>WERKPLEK</span>
-            </span>
-            <span>Heiloo & Heerhugowaard</span>
+            <span>OS Steakhouse Werkplek</span>
+            <span>Heiloo · Heerhugowaard</span>
           </footer>
         </main>
       </div>

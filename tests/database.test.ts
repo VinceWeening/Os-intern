@@ -384,3 +384,69 @@ describe('archive window, reports and default location', () => {
     expect((await db.query<{ default_location_id: string }>('select default_location_id from public.profiles where id=$1', [EMPLOYEE])).rows[0].default_location_id).toBe(HEILOO);
   });
 });
+
+describe('shared OS computer account', () => {
+  const KIOSK = '20000000-0000-0000-0000-000000000006';
+  const KIOSK_ROLE = '40000000-0000-0000-0000-000000000004';
+  // A work date inside the two-day window that never collides with the fixed
+  // 2026-11-01 fixture, which an earlier test leaves as a final Heiloo closing.
+  const amsterdam = (offsetDays: number) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Amsterdam' }).format(new Date(Date.now() - offsetDays * 86400000));
+  const day = amsterdam(0) === '2026-11-01' ? amsterdam(1) : amsterdam(0);
+  beforeEach(async () => {
+    await db.exec('begin');
+    await db.query("insert into auth.users(id,email) values ($1,'kassa@voorbeeld.example')", [KIOSK]);
+    await db.query("insert into public.profiles(id,full_name,role,access_role_id) values ($1,'OS computer Heiloo','employee',$2)", [KIOSK, KIOSK_ROLE]);
+    await db.query("insert into auth.mfa_factors(user_id,status,factor_type) values ($1,'verified','totp')", [KIOSK]);
+    await db.query('insert into public.location_memberships values ($1,$2)', [KIOSK, HEILOO]);
+  });
+  afterEach(async () => { await db.exec('rollback; reset role'); });
+  function payload(changes: Partial<CashPayload> & { employee_id?: string } = {}) {
+    return {
+      location_id: HEILOO, work_date: day, counts: { 10000: 1, 5000: 2 }, opening_cents: 15000, opening_reason: '',
+      turnover_cents: 10000, sold_vouchers_cents: 0, ideal_cents: 1000, shop_vouchers_cents: 500, redeemed_vouchers_cents: 500,
+      pax_cents: 2500, paynl_cents: 1000, difference_explanation: '', notes: 'Fictieve telling op de kassacomputer', ...changes,
+    };
+  }
+  async function save(id: string, version: number, value: object, submit = false) {
+    return (await db.query<{ snapshot: CashSnapshot }>('select public.save_cash_closing($1,$2,$3::jsonb,$4,$5) as snapshot',
+      [id, version, JSON.stringify(value), submit, submit ? randomUUID() : null])).rows[0].snapshot;
+  }
+  async function rejected(action: () => Promise<unknown>, message: RegExp) {
+    await db.exec('savepoint rejected'); await expect(action()).rejects.toThrow(message); await db.exec('rollback to savepoint rejected; release savepoint rejected');
+  }
+
+  it('lists only personal accounts that may close the chosen location', async () => {
+    await become(KIOSK);
+    const names = (await db.query<{ full_name: string }>('select full_name from public.cash_staff($1)', [HEILOO])).rows.map(r => r.full_name);
+    expect(names).toEqual(['Testbeheerder', 'Testmanager', 'Testmedewerker A']);
+    await rejected(() => db.query('select * from public.cash_staff($1)', [HHW]), /LOCATION_FORBIDDEN/);
+    await become(EMPLOYEE);
+    await rejected(() => db.query('select * from public.cash_staff($1)', [HEILOO]), /CASH_FORBIDDEN/);
+  });
+  it('requires a chosen employee who works at that location', async () => {
+    await become(KIOSK);
+    await rejected(() => save(randomUUID(), 0, payload()), /EMPLOYEE_REQUIRED/);
+    await rejected(() => save(randomUUID(), 0, payload({ employee_id: OTHER })), /EMPLOYEE_FORBIDDEN/);
+  });
+  it('records the closing on the employee and keeps the computer in the audit trail', async () => {
+    await become(KIOSK);
+    const id = randomUUID();
+    const draft = await save(id, 0, payload({ employee_id: EMPLOYEE }));
+    expect(draft.closing).toMatchObject({ employee_id: EMPLOYEE, employee_name: 'Testmedewerker A' });
+    const final = await save(id, 1, payload({ employee_id: EMPLOYEE }), true);
+    expect(final.closing).toMatchObject({ status: 'submitted', employee_id: EMPLOYEE, employee_name: 'Testmedewerker A' });
+    const events = (await db.query<{ action: string; actor_name: string; after_values: { closing: { employee_id: string } } }>(
+      'select action,actor_name,after_values from public.closing_events where closing_id=$1 order by occurred_at', [id])).rows;
+    // Both saves share one test transaction, so their timestamps are equal.
+    expect(events.map(e => `${e.action}:${e.actor_name}`).sort()).toEqual(['created:OS computer Heiloo', 'submitted:OS computer Heiloo']);
+    expect(events.find(e => e.action === 'created')!.after_values.closing).toMatchObject({ status: 'draft' });
+    expect(events.every(e => e.after_values.closing.employee_id === EMPLOYEE)).toBe(true);
+    await become(EMPLOYEE);
+    expect((await db.query('select * from public.cash_closings where id=$1', [id])).rows).toHaveLength(1);
+  });
+  it('does not change how personal accounts save', async () => {
+    await become(EMPLOYEE);
+    const result = await save(randomUUID(), 0, payload({ employee_id: OTHER }));
+    expect(result.closing.employee_id).toBe(EMPLOYEE);
+  });
+});

@@ -50,6 +50,13 @@ export const PERMISSIONS = [
       "Maandoverzicht met omzet, fooi en tekorten per vestiging, inclusief export.",
     available: true,
   },
+  {
+    key: "cash.shared_account",
+    label: "Gedeelde kassacomputer",
+    description:
+      "Account dat op de kassacomputer blijft ingelogd. Bij elke afslag kiest de medewerker zijn naam. Geldt niet voor beheerders.",
+    available: true,
+  },
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number]["key"];
 export type AccessRole = {
@@ -63,6 +70,10 @@ export type AccessRole = {
 };
 export function hasPermission(role: AccessRole, permission: Permission) {
   return role.is_admin || role.permissions.includes(permission);
+}
+// Administrators hold every permission but always act as themselves.
+export function isSharedAccount(role: AccessRole) {
+  return !role.is_admin && role.permissions.includes("cash.shared_account");
 }
 export function validPermissions(values: unknown): values is Permission[] {
   return (

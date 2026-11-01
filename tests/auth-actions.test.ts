@@ -15,7 +15,7 @@ import { enrollAuthenticator, removeAuthenticator, verifyAuthenticator } from '@
 
 beforeEach(() => {
   vi.resetAllMocks();
-  mock.requireUser.mockResolvedValue({ supabase: client, user: { id: 'staff' } });
+  mock.requireUser.mockResolvedValue({ supabase: client, user: { id: 'staff', factors: [{ id: 'a', factor_type: 'totp', status: 'verified' }] } });
   mock.requireStaff.mockResolvedValue({ supabase: client, factors: [{ id: 'a' }] });
   mock.listFactors.mockResolvedValue({ data: { all: [{ id: 'a', factor_type: 'totp', status: 'verified' }], totp: [{ id: 'a' }] }, error: null });
   mock.challengeAndVerify.mockResolvedValue({ data: {}, error: null });
@@ -58,5 +58,9 @@ describe('MFA server actions', () => {
   it('retains leading zeros in valid authenticator codes', async () => {
     expect((await verifyAuthenticator('a', '001234')).success).toBeTruthy();
     expect(mock.challengeAndVerify).toHaveBeenCalledWith({ factorId: 'a', code: '001234' });
+  });
+  it('opens the workplace directly after a sign-in code, without listing factors again', async () => {
+    await expect(verifyAuthenticator('a', '123456', true)).rejects.toThrow('REDIRECT');
+    expect(mock.listFactors).not.toHaveBeenCalled();
   });
 });

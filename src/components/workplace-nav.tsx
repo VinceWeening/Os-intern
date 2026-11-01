@@ -24,18 +24,3 @@ export function NavLink({
   );
 }
 
-export function SectionTitle({ title }: { title?: string }) {
-  const pathname = usePathname();
-  return (
-    <strong>
-      {title ??
-        (pathname.startsWith("/gebruikersbeheer")
-          ? "Gebruikersbeheer"
-          : pathname.startsWith("/rapportage")
-            ? "Rapportage"
-            : pathname.startsWith("/beveiliging")
-              ? "Account & beveiliging"
-              : "Kassa-afslag")}
-    </strong>
-  );
-}

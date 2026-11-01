@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getPublicConfig } from '@/lib/config';
 import { requireUser, requireStaff } from './session';
-import { canRemoveAuthenticator } from './access';
+import { canRemoveAuthenticator, loginEmail } from './access';
 
 export type ActionResult = { error?: string; success?: string };
 export type EnrollmentResult = ActionResult & { factorId?: string; qrCode?: string; secret?: string };
@@ -17,9 +17,9 @@ function logFailure(event: string, code?: string) {
 
 export async function signIn(_previous: ActionResult, form: FormData): Promise<ActionResult> {
   if (!getPublicConfig()) return { error: 'De testomgeving is nog niet verbonden met Supabase.' };
-  const email = String(form.get('email') ?? '').trim();
+  const email = loginEmail(String(form.get('email') ?? ''));
   const password = String(form.get('password') ?? '');
-  if (!email || !password || email.length > 254 || password.length > 1024) return { error: 'Vul je e-mailadres en wachtwoord in.' };
+  if (!email || !password || password.length > 1024) return { error: 'Vul je e-mailadres of gebruikersnaam en je wachtwoord in.' };
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) {
@@ -62,16 +62,18 @@ export async function enrollAuthenticator(): Promise<EnrollmentResult> {
   return { factorId: data.id, qrCode: data.totp.qr_code, secret: data.totp.secret };
 }
 
-export async function verifyAuthenticator(factorId: string, code: string): Promise<ActionResult> {
-  const { supabase } = await requireUser();
+export async function verifyAuthenticator(factorId: string, code: string, openWorkplace = false): Promise<ActionResult> {
+  // getUser() in requireUser already returned the factors, including one being set up.
+  const { supabase, user } = await requireUser();
   if (!/^[0-9]{6}$/.test(code)) return { error: 'Vul een code van zes cijfers in.' };
-  const { data: factors, error: listError } = await supabase.auth.mfa.listFactors();
-  if (listError || !factors.all.some(item => item.id === factorId && item.factor_type === 'totp')) return { error: 'Deze authenticator is niet beschikbaar. Vernieuw de pagina.' };
+  if (!user.factors?.some(item => item.id === factorId && item.factor_type === 'totp')) return { error: 'Deze authenticator is niet beschikbaar. Vernieuw de pagina.' };
   const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId, code });
   if (error) {
     logFailure('mfa_verify_failed', error.code);
     return { error: 'Code niet geaccepteerd. Gebruik een nieuwe code uit je authenticator.' };
   }
+  // Signing in: go straight to the workplace in this same response.
+  if (openWorkplace) redirect('/kassa-afslag');
   revalidatePath('/', 'layout');
   return { success: 'Authenticator bevestigd.' };
 }

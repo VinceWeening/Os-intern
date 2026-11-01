@@ -142,6 +142,10 @@ export type Database = {
         Args: { p_location: string | null };
         Returns: undefined;
       };
+      cash_staff: {
+        Args: { p_location: string };
+        Returns: { id: string; full_name: string }[];
+      };
       cash_report: {
         Args: { p_from: string; p_to: string };
         Returns: ReportRow[];

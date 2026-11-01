@@ -10,9 +10,9 @@
   background: transparent;
 }
 .management-tabs .button[aria-pressed="true"] {
-  background: #3a2c1d;
+  background: var(--line);
   color: var(--accent);
-  border-color: #62482d;
+  border-color: var(--line-strong);
 }
 .management-toolbar {
   display: flex;
@@ -78,10 +78,10 @@
 }
 .user-status {
   font-size: 9px;
-  color: #c6957e;
+  color: var(--bad);
 }
 .user-status.is-active {
-  color: #b7c18b;
+  color: var(--good);
 }
 .role-grid {
   display: grid;
@@ -102,7 +102,7 @@
   gap: 12px;
 }
 .role-card h2 {
-  font-family: Georgia, serif;
+  font-family:var(--font-heading);
   font-weight: 400;
   font-size: 25px;
   margin: 0;
@@ -115,11 +115,11 @@
 }
 .role-card small {
   font-size: 10px;
-  color: #b9a383;
+  color: var(--muted);
 }
 .role-card ul {
   font-size: 11px;
-  color: #c2b39a;
+  color: var(--muted);
   line-height: 1.9;
   padding-left: 16px;
   margin-bottom: 24px;
@@ -140,7 +140,7 @@
   align-items: start;
 }
 .editor-heading h2 {
-  font-family: Georgia, serif;
+  font-family:var(--font-heading);
   font-size: 28px;
   font-weight: 400;
   margin: 12px 0;
@@ -163,7 +163,7 @@ fieldset {
 }
 legend {
   font-size: 12px;
-  color: #d4bd9c;
+  color: var(--text);
   padding: 0 9px;
 }
 .check-row {
@@ -211,8 +211,8 @@ legend {
   padding: 2px 5px;
 }
 .change-summary {
-  background: #2b251b;
-  border: 1px solid #57442d;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
   padding: 20px;
   border-radius: 6px;
   font-size: 12px;
@@ -222,7 +222,7 @@ legend {
   color: var(--accent);
 }
 .change-summary p {
-  color: #c4b399;
+  color: var(--muted);
   line-height: 1.8;
   margin: 10px 0 0;
   overflow-wrap: anywhere;
@@ -243,7 +243,7 @@ legend {
 .audit-event summary {
   cursor: pointer;
   font-size: 12px;
-  color: #d7c2a4;
+  color: var(--text);
   line-height: 1.9;
   overflow-wrap: anywhere;
 }
@@ -273,7 +273,7 @@ legend {
   line-height: 1.8;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  background: #191612;
+  background: var(--bg);
   padding: 15px;
   border-radius: 5px;
   max-height: 350px;

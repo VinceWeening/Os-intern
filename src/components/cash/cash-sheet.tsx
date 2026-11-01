@@ -1,3 +1,4 @@
+import { BrandLogo } from "@/components/brand";
 import {
   DENOMINATIONS,
   MONEY_FIELDS,
@@ -89,7 +90,9 @@ export function CashSheet({
           <span className="eyebrow">OS STEAKHOUSE</span>
           <h2>Kastellingformulier</h2>
         </div>
-        <strong className="sheet-os">OS</strong>
+        <span className="sheet-os">
+          <BrandLogo />
+        </span>
       </div>
       <dl className="sheet-meta">
         <div>

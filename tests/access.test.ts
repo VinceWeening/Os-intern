@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canRemoveAuthenticator, needsAuthenticator } from '@/lib/auth/access';
+import { canRemoveAuthenticator, loginEmail, needsAuthenticator, USERNAME_DOMAIN } from '@/lib/auth/access';
 import { amsterdamWorkDate } from '@/lib/dates';
 
 describe('authenticator policy', () => {
@@ -25,5 +25,13 @@ describe('Amsterdam work date', () => {
   it('handles both daylight-saving changes', () => {
     expect(amsterdamWorkDate(new Date('2026-03-29T01:30:00Z'))).toBe('2026-03-29');
     expect(amsterdamWorkDate(new Date('2026-10-25T01:30:00Z'))).toBe('2026-10-25');
+  });
+});
+
+describe('sign-in name', () => {
+  it('maps a username onto the reserved no-mail domain and keeps e-mail addresses', () => {
+    expect(loginEmail(' Kassa-Heiloo ')).toBe(`kassa-heiloo@${USERNAME_DOMAIN}`);
+    expect(loginEmail('naam@voorbeeld.nl')).toBe('naam@voorbeeld.nl');
+    for (const value of ['', 'a', 'kassa heiloo', '-kassa', 'x'.repeat(41)]) expect(loginEmail(value)).toBeNull();
   });
 });

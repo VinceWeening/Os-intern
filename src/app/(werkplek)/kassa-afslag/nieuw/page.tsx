@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { requirePermission } from "@/lib/auth/session";
+import { isSharedAccount } from "@/lib/auth/permissions";
+import { loadStaff } from "@/lib/cash/staff";
 import { CashForm } from "@/components/cash/cash-form";
 import { amsterdamWorkDate } from "@/lib/dates";
 import type { CashSnapshot } from "@/lib/supabase/database.types";
@@ -12,7 +14,7 @@ export default async function NewClosing({
 }: {
   searchParams: Promise<{ locatie?: string; herstel?: string }>;
 }) {
-  const { supabase, profile, user } =
+  const { supabase, profile, role, user } =
     await requirePermission("cash.submit");
   const params = await searchParams;
   const restoring = /^[0-9a-f-]{36}$/i.test(params.herstel ?? "");
@@ -28,6 +30,12 @@ export default async function NewClosing({
         : Promise.resolve({ data: null }),
     ]);
   if (error) throw new Error("LOCATIONS_UNAVAILABLE");
+  const staff = isSharedAccount(role)
+    ? await loadStaff(
+        supabase,
+        (locations ?? []).map((l) => l.id),
+      )
+    : null;
   let initial: CashSnapshot | null = null;
   if (restoring) {
     if (closing) {
@@ -77,6 +85,7 @@ export default async function NewClosing({
           locationId={locationId}
           defaultLocationId={profile.default_location_id}
           initial={initial}
+          staff={staff}
         />
       )}
     </>

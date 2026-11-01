@@ -51,6 +51,8 @@ type Props = {
   locationId: string;
   defaultLocationId?: string | null;
   initial: CashSnapshot | null;
+  // Only for a shared computer account: who may close each location.
+  staff?: Record<string, { id: string; full_name: string }[]> | null;
 };
 export function CashForm({
   id,
@@ -61,6 +63,7 @@ export function CashForm({
   locationId,
   defaultLocationId = null,
   initial,
+  staff = null,
 }: Props) {
   const router = useRouter();
   const [draft, setDraft] = useState<CashDraft>(() =>
@@ -94,6 +97,17 @@ export function CashForm({
     locations.find((l) => l.id === draft.locationId)?.default_opening_cents ??
     15000;
   const checked = validateDraft(draft, false, defaultOpening);
+  const shared = Boolean(staff);
+  const staffHere = staff?.[draft.locationId] ?? [];
+  const employeeName = shared
+    ? (staffHere.find((s) => s.id === draft.employeeId)?.full_name ?? "")
+    : name;
+  // On the shared computer the closing needs a name before it can be saved.
+  function withEmployee(found: Record<string, string>) {
+    return shared && !staffHere.some((s) => s.id === draft.employeeId)
+      ? { employee: "Kies je naam bij Medewerker.", ...found }
+      : found;
+  }
   const openingDiffers = parseMoney(draft.opening) !== defaultOpening;
   const shortage =
     checked.totals.counted > 0 &&
@@ -256,8 +270,9 @@ export function CashForm({
   async function save(final: boolean) {
     if (saving.current) return;
     const validation = validateDraft(draft, final, defaultOpening);
-    setErrors(validation.errors);
-    if (!validation.valid) {
+    const found = withEmployee(validation.errors);
+    setErrors(found);
+    if (Object.keys(found).length) {
       setMessage("Controleer de gemarkeerde velden.");
       return;
     }
@@ -484,7 +499,7 @@ export function CashForm({
           </section>
           <CashSheet
             payload={checked.payload}
-            name={name}
+            name={employeeName}
             location={
               locations.find((l) => l.id === draft.locationId)?.name ?? ""
             }
@@ -497,8 +512,9 @@ export function CashForm({
           onSubmit={(event) => {
             event.preventDefault();
             const result = validateDraft(draft, true, defaultOpening);
-            setErrors(result.errors);
-            if (result.valid) {
+            const found = withEmployee(result.errors);
+            setErrors(found);
+            if (!Object.keys(found).length) {
               setReview(true);
               setMessage("");
             } else
@@ -508,7 +524,46 @@ export function CashForm({
           }}
         >
           <fieldset className="panel cash-section" disabled={blocked}>
-            <legend>1 · Vestiging en werkdatum</legend>
+            <legend>1 · Medewerker, vestiging en werkdatum</legend>
+            <div className="employee-field">
+              {shared ? (
+                <>
+                  <label htmlFor="employee">Wie maakt deze afslag?</label>
+                  <select
+                    id="employee"
+                    value={draft.employeeId ?? ""}
+                    disabled={lockedIdentity}
+                    aria-invalid={Boolean(errors.employee)}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      change((old) => ({ ...old, employeeId: value }));
+                      setErrors((old) => {
+                        const next = { ...old };
+                        delete next.employee;
+                        return next;
+                      });
+                    }}
+                  >
+                    <option value="">Kies je naam…</option>
+                    {staffHere.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.full_name}
+                      </option>
+                    ))}
+                  </select>
+                  {error("employee")}
+                  <p className="form-help">
+                    Dit is de gedeelde kassacomputer. De afslag komt op jouw
+                    naam.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <span className="field-label">Medewerker</span>
+                  <p className="static-field">{name}</p>
+                </>
+              )}
+            </div>
             <div className="cash-fields">
               <div>
                 {locations.length === 1 ? (
@@ -527,6 +582,11 @@ export function CashForm({
                         change((old) => ({
                           ...old,
                           locationId: event.target.value,
+                          employeeId: staff?.[event.target.value]?.some(
+                            (s) => s.id === old.employeeId,
+                          )
+                            ? old.employeeId
+                            : "",
                           opening: emptyDraft(
                             event.target.value,
                             date,
@@ -593,8 +653,7 @@ export function CashForm({
               </div>
             </div>
             <p className="form-help">
-              Medewerker: {name}. De werkdatum staat los van het exacte
-              indienmoment.
+              De werkdatum staat los van het exacte indienmoment.
             </p>
           </fieldset>
           <div className="cash-form-columns">
@@ -931,7 +990,7 @@ export function CashForm({
         <div className="print-only">
           <CashSheet
             payload={checked.payload}
-            name={name}
+            name={employeeName}
             location={
               locations.find((l) => l.id === draft.locationId)?.name ?? ""
             }

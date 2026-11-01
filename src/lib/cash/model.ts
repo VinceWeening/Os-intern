@@ -21,6 +21,8 @@ export type CashPayload = Amounts & {
   opening_reason: string;
   difference_explanation: string;
   notes: string;
+  // Only used by a shared computer account; ignored for personal accounts.
+  employee_id?: string | null;
 };
 export type CountRow = {
   quantity: string;
@@ -36,6 +38,8 @@ export type CashDraft = {
   amounts: Record<MoneyKey, string>;
   explanation: string;
   notes: string;
+  // Chosen employee on a shared computer account.
+  employeeId?: string;
 };
 export type CashClosing = Amounts & {
   id: string;
@@ -57,6 +61,7 @@ export type CashClosing = Amounts & {
   version: number;
   form_version: number;
   submission_key: string | null;
+  created_by?: string | null;
   first_submitted_at: string | null;
   last_submitted_at: string | null;
   created_at: string;
@@ -109,7 +114,10 @@ export function normalizeRow(
     return null;
   // Een leeg veld betekent: niets van deze coupure geteld.
   if ((row.edited === "amount" ? row.amount : row.quantity).trim() === "")
-    return { quantity: 0, row: { quantity: "", amount: "", edited: "quantity" } };
+    return {
+      quantity: 0,
+      row: { quantity: "", amount: "", edited: "quantity" },
+    };
   const amount = row.edited === "amount" ? parseMoney(row.amount) : null;
   const quantity =
     row.edited === "amount"
@@ -178,6 +186,7 @@ export function emptyDraft(
     openingReason: "",
     explanation: "",
     notes: "",
+    employeeId: "",
     rows: Object.fromEntries(
       DENOMINATIONS.map((d) => [
         d,
@@ -200,6 +209,7 @@ export function closingToDraft(
     openingReason: closing.opening_reason,
     explanation: closing.difference_explanation,
     notes: closing.notes,
+    employeeId: closing.employee_id,
     rows: Object.fromEntries(
       DENOMINATIONS.map((d) => [
         d,
@@ -269,6 +279,7 @@ export function validateDraft(
     opening_reason: draft.openingReason.trim(),
     difference_explanation: draft.explanation.trim(),
     notes: draft.notes.trim(),
+    employee_id: draft.employeeId || null,
   };
   const totals = calculate(payload);
   if (final) {

@@ -38,11 +38,12 @@ export function AuthenticatorPanel({ factors, mode }: Props) {
     {(mode === 'challenge' && factors.length > 0) || enrolling ? <form className="form-stack" onSubmit={async event => {
       event.preventDefault(); setBusy(true); setError(''); setMessage('');
       try {
-        const result = await verifyAuthenticator(target, code);
+        // When signing in the server redirects to the workplace itself; no extra page loads here.
+        const result = await verifyAuthenticator(target, code, mode === 'challenge');
+        if (!result) return;
         if (result.error) setError(result.error);
         else {
           setEnrollment(null); setCode(''); setMessage(result.success ?? 'Bevestigd.');
-          if (mode === 'challenge') router.replace('/kassa-afslag');
           router.refresh();
         }
       } catch { setError('Bevestigen lukt nu niet. Controleer je verbinding en probeer een nieuwe code.'); }

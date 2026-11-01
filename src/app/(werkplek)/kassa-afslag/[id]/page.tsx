@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requirePermission } from "@/lib/auth/session";
-import { hasPermission } from "@/lib/auth/permissions";
+import { hasPermission, isSharedAccount } from "@/lib/auth/permissions";
+import { loadStaff } from "@/lib/cash/staff";
 import { CashForm } from "@/components/cash/cash-form";
 import { CashSheet } from "@/components/cash/cash-sheet";
 import { CashHistory } from "@/components/cash/history";
@@ -17,20 +18,20 @@ export default async function ClosingPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { supabase, role, user } =
-    await requirePermission("cash.open");
+  const { supabase, role, user } = await requirePermission("cash.open");
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
-  const [{ data: closing, error }, lines, locations, events] = await Promise.all([
-    supabase.from("cash_closings").select("*").eq("id", id).maybeSingle(),
-    supabase.from("cash_count_lines").select("*").eq("closing_id", id),
-    supabase.from("locations").select("*").order("name"),
-    supabase
-      .from("closing_events")
-      .select("*")
-      .eq("closing_id", id)
-      .order("occurred_at", { ascending: false }),
-  ]);
+  const [{ data: closing, error }, lines, locations, events] =
+    await Promise.all([
+      supabase.from("cash_closings").select("*").eq("id", id).maybeSingle(),
+      supabase.from("cash_count_lines").select("*").eq("closing_id", id),
+      supabase.from("locations").select("*").order("name"),
+      supabase
+        .from("closing_events")
+        .select("*")
+        .eq("closing_id", id)
+        .order("occurred_at", { ascending: false }),
+    ]);
   if (error) throw new Error("CLOSING_UNAVAILABLE");
   if (!closing) notFound();
   if (lines.error || locations.error || events.error)
@@ -42,8 +43,13 @@ export default async function ClosingPage({
     closing.status === "draft" &&
     hasPermission(role, "cash.submit") &&
     (closing.employee_id === user.id ||
+      (isSharedAccount(role) && closing.created_by === user.id) ||
       (Boolean(closing.first_submitted_at) &&
         hasPermission(role, "cash.reopen")));
+  const staff =
+    canEdit && isSharedAccount(role)
+      ? await loadStaff(supabase, [closing.location_id])
+      : null;
   const status = {
     draft: "Concept",
     submitted: "Ingediend",
@@ -94,6 +100,7 @@ export default async function ClosingPage({
           date={closing.work_date}
           locationId={closing.location_id}
           initial={{ closing, counts }}
+          staff={staff}
         />
       ) : (
         <CashSheet
