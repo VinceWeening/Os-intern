@@ -1,0 +1,65 @@
+/* Summary of one closing (review, detail, daily overview). The screen version
+   matches the entry form; print keeps the plain black-and-white sheet. */
+.sheet-tiles { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:16px 0; }
+.sheet-body { display:grid;grid-template-columns:minmax(0,1fr);gap:16px; }
+.sheet-calc h3,.sheet-side .sheet-notes h3 { margin:0 0 8px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted); }
+.sheet-register { display:flex;flex-direction:column;gap:2px;padding:16px 18px;border:1.5px solid var(--text);border-radius:12px; }
+.sheet-register > span { font-size:13px;font-weight:600; }
+.sheet-register > strong { font-size:30px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2; }
+.sheet-register > small { font-size:11px;color:var(--muted); }
+
+@media screen {
+  .cash-sheet.panel { padding:20px 22px;margin:14px 0;border-radius:14px;border-color:var(--line);box-shadow:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.06); }
+  .cash-sheet .sheet-heading { padding-bottom:12px; }
+  .cash-sheet .sheet-heading h2 { margin:4px 0 0;font-size:22px; }
+  .cash-sheet .sheet-os .brand-logo { height:40px; }
+  .cash-sheet .sheet-meta { grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:12px 0 0; }
+  .cash-sheet .sheet-meta > div { padding:8px 12px;border-radius:10px;background:var(--surface-2); }
+  .cash-sheet .sheet-meta dt { margin-bottom:2px;font-size:10px; }
+  .cash-sheet .sheet-meta dd { font-size:14px;font-weight:500; }
+  .cash-sheet .sheet-result { display:flex;flex-direction:column;gap:2px;margin:0;padding:16px 18px;border-radius:12px;border:1.5px solid var(--line-strong);background:var(--surface-2); }
+  .cash-sheet .sheet-result > span { font-size:13px;font-weight:600; }
+  .cash-sheet .sheet-result > strong { font-family:inherit;font-size:30px;font-weight:700;line-height:1.2; }
+  .cash-sheet .sheet-result > small { font-size:11px;color:inherit;opacity:.8; }
+  .cash-sheet .sheet-calc,.cash-sheet .sheet-side > * { padding:14px 16px;border:1px solid var(--line);border-radius:12px; }
+  .cash-sheet .sheet-side { display:grid;gap:12px;align-content:start; }
+  .cash-sheet .sheet-side > .print-only { display:none; }
+  .cash-sheet .sheet-counts { margin:0;padding:0; }
+  .cash-sheet .sheet-counts > summary { min-height:44px;padding:10px 16px;font-size:13px;font-weight:600; }
+  .cash-sheet .sheet-counts > .cash-table { border-top:1px solid var(--line); }
+  .cash-sheet .cash-table { font-size:13px;table-layout:auto; }
+  .cash-sheet .cash-table td,.cash-sheet .cash-table th { padding:5px 16px;border:0;border-bottom:1px solid var(--hairline); }
+  .cash-sheet .cash-table thead th { font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:right; }
+  .cash-sheet .cash-table thead th:first-child { text-align:left; }
+  .cash-sheet .cash-table td:first-child { text-align:left; }
+  .cash-sheet .cash-table tr.is-zero td { color:var(--faint); }
+  .cash-sheet .cash-table .total-row { background:none; }
+  .cash-sheet .cash-table .total-row th,.cash-sheet .cash-table .total-row td { font-weight:600;border-top:1.5px solid var(--text); }
+  .cash-sheet .sheet-notes h3 { margin-top:0; }
+  .cash-sheet .sheet-notes p { margin:0;font-size:13px;line-height:1.6; }
+  .cash-sheet > .form-help { margin-top:14px; }
+}
+/* Side by side once the sheet is wide enough (square desk screen and up). */
+@media screen and (min-width: 1000px) {
+  .sheet-body { grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); }
+}
+@media screen and (max-width: 760px) {
+  .sheet-tiles { grid-template-columns:minmax(0,1fr); }
+  .cash-sheet .sheet-meta { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+
+/* Review bar above the summary, before final submission. */
+.review-bar { display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:12px 0 0;padding:14px 18px;border-radius:14px; }
+.review-bar strong { display:block;font-size:15px; }
+.review-bar p { margin:2px 0 0;font-size:12px;color:var(--muted); }
+.review-bar .button-row .button { justify-content:center;min-height:44px;border-radius:8px; }
+
+@media print {
+  .sheet-tiles { gap:8px;margin:10px 0; }
+  .sheet-result,.sheet-register { display:flex;flex-direction:column;padding:8px 10px;border:1px solid #555 !important;border-radius:4px;background:none !important;margin:0; }
+  .sheet-result > strong,.sheet-register > strong { font-size:20px; }
+  .sheet-calc h3 { font-size:10px; }
+  .cash-receipt li { font-size:10px;padding:1px 0; }
+  .overview-total,.overview-result { border-color:#000 !important;box-shadow:none !important;background:none !important;margin:3px 0;padding:4px 0 0;font-size:11px; }
+  .overview-result strong { font-size:14px; }
+}

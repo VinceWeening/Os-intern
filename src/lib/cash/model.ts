@@ -1,3 +1,8 @@
+import {
+  evaluateDefinition,
+  type FormDefinition,
+  type FormVersion,
+} from "./form-definition";
 export const DENOMINATIONS = [
   10000, 5000, 2000, 1000, 500, 200, 100, 50, 20, 10, 5,
 ] as const;
@@ -14,6 +19,9 @@ export const MONEY_FIELDS = [
 export type MoneyKey = (typeof MONEY_FIELDS)[number]["key"];
 export type Amounts = Record<MoneyKey, number | null>;
 export type CashPayload = Amounts & {
+  form_definition_id?: string | null;
+  form_schema?: FormDefinition | null;
+  custom_inputs?: Record<string, number | null>;
   location_id: string;
   work_date: string;
   counts: Record<string, number>;
@@ -30,6 +38,9 @@ export type CountRow = {
   edited: "quantity" | "amount";
 };
 export type CashDraft = {
+  formId?: string;
+  formDefinition?: FormDefinition;
+  customAmounts?: Record<string, string>;
   locationId: string;
   workDate: string;
   rows: Record<string, CountRow>;
@@ -42,6 +53,10 @@ export type CashDraft = {
   employeeId?: string;
 };
 export type CashClosing = Amounts & {
+  form_definition_id?: string | null;
+  form_schema?: FormDefinition | null;
+  custom_inputs?: Record<string, number | null>;
+  custom_totals?: Record<string, number | null>;
   id: string;
   location_id: string;
   work_date: string;
@@ -144,6 +159,22 @@ export function calculate(payload: CashPayload): Totals {
       total + denomination * (payload.counts[denomination] ?? 0),
     0,
   );
+  if (payload.form_schema) {
+    const { values } = evaluateDefinition(
+      payload.form_schema,
+      payload.custom_inputs ?? {},
+      counted,
+      payload.opening_cents,
+    );
+    return {
+      counted,
+      opening: payload.opening_cents,
+      cash: values.cash ?? counted - payload.opening_cents,
+      required: values.required,
+      result: values.result,
+      register: values.register,
+    };
+  }
   const cash = counted - payload.opening_cents;
   const required =
     payload.turnover_cents === null || payload.sold_vouchers_cents === null
@@ -178,8 +209,21 @@ export function emptyDraft(
   locationId: string,
   date: string,
   opening = 15000,
+  form?: FormVersion,
 ): CashDraft {
   return {
+    formId: form?.id,
+    formDefinition: form?.definition,
+    customAmounts: form
+      ? Object.fromEntries(
+          form.definition.fields
+            .filter((f) => f.kind === "input")
+            .map((f) => [
+              f.key,
+              f.default === null ? "" : inputMoney(f.default),
+            ]),
+        )
+      : undefined,
     locationId,
     workDate: date,
     opening: inputMoney(opening),
@@ -203,6 +247,20 @@ export function closingToDraft(
   counts: Record<string, number>,
 ): CashDraft {
   return {
+    formId: closing.form_definition_id ?? undefined,
+    formDefinition: closing.form_schema ?? undefined,
+    customAmounts: closing.form_schema
+      ? Object.fromEntries(
+          closing.form_schema.fields
+            .filter((f) => f.kind === "input")
+            .map((f) => [
+              f.key,
+              closing.custom_inputs?.[f.key] == null
+                ? ""
+                : inputMoney(closing.custom_inputs[f.key]!),
+            ]),
+        )
+      : undefined,
     locationId: closing.location_id,
     workDate: closing.work_date,
     opening: inputMoney(closing.opening_cents),
@@ -244,7 +302,7 @@ export function validateDraft(
   }
   const amounts = {} as Amounts;
   for (const field of MONEY_FIELDS) {
-    const raw = draft.amounts[field.key];
+    const raw = draft.formDefinition ? "0" : draft.amounts[field.key];
     amounts[field.key] = parseMoney(raw);
     if ((raw.trim() !== "" || final) && amounts[field.key] === null)
       errors[field.key] =
@@ -272,6 +330,21 @@ export function validateDraft(
   }
   const payload: CashPayload = {
     ...amounts,
+    form_definition_id: draft.formId ?? null,
+    form_schema: draft.formDefinition,
+    custom_inputs: draft.formDefinition
+      ? Object.fromEntries(
+          draft.formDefinition.fields
+            .filter((f) => f.kind === "input")
+            .map((f) => {
+              const raw = draft.customAmounts?.[f.key] ?? "";
+              const value = parseMoney(raw);
+              if (raw.trim() && value === null)
+                errors[f.key] = "Vul een geldig bedrag vanaf € 0 in.";
+              return [f.key, value];
+            }),
+        )
+      : undefined,
     location_id: draft.locationId,
     work_date: draft.workDate,
     counts,
@@ -282,6 +355,17 @@ export function validateDraft(
     employee_id: draft.employeeId || null,
   };
   const totals = calculate(payload);
+  if (draft.formDefinition)
+    Object.assign(
+      errors,
+      evaluateDefinition(
+        draft.formDefinition,
+        payload.custom_inputs ?? {},
+        totals.counted,
+        payload.opening_cents,
+        final,
+      ).errors,
+    );
   if (final) {
     if (totals.cash < 0)
       errors.cash =

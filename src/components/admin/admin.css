@@ -349,3 +349,21 @@ legend {
     line-height: 1.7;
   }
 }
+
+.permission-grant { padding: 1rem 0; border-bottom: 1px solid var(--border, #594335); }
+.permission-grant .editor-grid { margin: .5rem 0 .5rem 2rem; }
+.permission-grant input[type="datetime-local"] { max-width: 100%; min-width: 0; }
+.form-settings { margin-top: 24px; }
+.formula-term { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
+.formula-term > label { flex: 1; min-width: 160px; }
+.form-settings fieldset { min-width: 0; }
+.form-settings select { max-width: 100%; }
+.form-calculation-table { width: 100%; table-layout: fixed; border-collapse: collapse; margin-top: 24px; font-size: 13px; }
+.form-calculation-table caption { text-align: left; color: var(--muted); margin-bottom: 12px; }
+.form-calculation-table th, .form-calculation-table td { padding: 13px 12px; border-bottom: 1px solid var(--line); vertical-align: top; text-align: left; overflow-wrap: anywhere; }
+.form-calculation-table thead th { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+.form-calculation-table th:first-child { width: 28%; }
+.form-calculation-table th:last-child, .form-calculation-table td:last-child { width: 23%; text-align: right; font-variant-numeric: tabular-nums; }
+.form-calculation-table small { display: block; color: var(--muted); margin-top: 4px; font-size: 11px; font-weight: 400; }
+.form-calculation-table .calculated-row { background: var(--surface-2); font-weight: 600; }
+@media (max-width: 600px) { .form-calculation-table { font-size: 12px; } .form-calculation-table th, .form-calculation-table td { padding: 12px 6px; } }

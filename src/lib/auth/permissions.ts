@@ -1,5 +1,19 @@
 export const PERMISSIONS = [
   {
+    key: "day.open",
+    label: "Dagoverzicht bekijken",
+    description:
+      "Dagnotities, autoritten, mee-eters en verspilling van toegewezen vestigingen bekijken.",
+    available: true,
+  },
+  {
+    key: "day.edit",
+    label: "Dagoverzicht invullen",
+    description:
+      "Een dagoverzicht maken en wijzigen binnen toegewezen vestigingen.",
+    available: true,
+  },
+  {
     key: "cash.open",
     label: "Kassa-afslag openen",
     description: "Het onderdeel Kassa-afslag gebruiken.",
@@ -79,6 +93,37 @@ export function validPermissions(values: unknown): values is Permission[] {
   return (
     Array.isArray(values) &&
     values.every((value) => PERMISSIONS.some((item) => item.key === value)) &&
-    (values.length === 0 || values.includes("cash.open"))
+    (!values.some((value) => value.startsWith("cash.")) ||
+      values.includes("cash.open")) &&
+    (!values.includes("day.edit") || values.includes("day.open"))
   );
+}
+
+// Shared-account mode is an identity setting and can only be assigned through a role.
+export const EXTRA_PERMISSIONS = PERMISSIONS.filter(
+  (item) => item.key !== "cash.shared_account",
+);
+export function effectiveRole(
+  role: AccessRole,
+  grants: { permission: string; expires_at: string | null }[],
+  now = Date.now(),
+): AccessRole {
+  const extra = grants
+    .filter(
+      (g) =>
+        EXTRA_PERMISSIONS.some((p) => p.key === g.permission) &&
+        (g.expires_at === null || Date.parse(g.expires_at) > now),
+    )
+    .map((g) => g.permission);
+  return {
+    ...role,
+    permissions: [
+      ...new Set([
+        ...role.permissions,
+        ...extra,
+        ...(extra.some((key) => key.startsWith("cash.")) ? ["cash.open"] : []),
+        ...(extra.includes("day.edit") ? ["day.open"] : []),
+      ]),
+    ],
+  };
 }

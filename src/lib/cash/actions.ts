@@ -62,7 +62,7 @@ export async function saveCash(input: {
   try {
     const { data: existing } = await supabase
       .from("cash_closings")
-      .select("opening_default_cents")
+      .select("opening_default_cents, form_definition_id, form_schema")
       .eq("id", input.id)
       .maybeSingle();
     const { data: location } = await supabase
@@ -71,8 +71,27 @@ export async function saveCash(input: {
       .eq("id", input.draft.locationId)
       .single();
     if (!location) return { error: "Geen toegang tot deze vestiging." };
+    const formId = existing ? existing.form_definition_id : input.draft.formId;
+    if (
+      (existing && formId !== (input.draft.formId ?? null)) ||
+      (!existing && location.cash_form_id !== formId)
+    )
+      return {
+        error:
+          "Het formulier is gewijzigd. Bewaar je invoer en open een nieuwe telling met de actuele instellingen.",
+      };
+    const { data: form, error: formError } = formId
+      ? await supabase
+          .from("cash_form_versions")
+          .select("*")
+          .eq("id", formId)
+          .eq("location_id", location.id)
+          .single()
+      : { data: null, error: null };
+    if (formError)
+      return { error: "Formulierinstellingen konden niet worden geladen." };
     checked = validateDraft(
-      input.draft,
+      { ...input.draft, formDefinition: form?.definition, formId: form?.id },
       input.submit,
       existing?.opening_default_cents ??
         location.default_opening_cents ??

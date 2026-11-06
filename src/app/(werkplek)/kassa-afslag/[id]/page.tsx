@@ -62,7 +62,7 @@ export default async function ClosingPage({
   ).payload;
   return (
     <>
-      <div className="page-heading no-print">
+      <div className="page-heading no-print cash-form-heading">
         <div>
           <Link className="text-link" href="/kassa-afslag">
             ← Alle afsluitingen

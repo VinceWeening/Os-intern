@@ -4,7 +4,7 @@ import { redirect, notFound } from "next/navigation";
 import { getPublicConfig } from "@/lib/config";
 import { createClient } from "@/lib/supabase/server";
 import { needsAuthenticator } from "./access";
-import { hasPermission, type Permission } from "./permissions";
+import { effectiveRole, hasPermission, type Permission } from "./permissions";
 
 export const requireUser = cache(async () => {
   if (!getPublicConfig()) redirect("/inloggen");
@@ -36,7 +36,13 @@ export const requireStaff = cache(async () => {
     redirect("/authenticator");
   }
   if (error || !data?.active) redirect("/geen-toegang");
-  const { app_roles: role, ...profile } = data;
+  const { app_roles: baseRole, ...profile } = data;
+  const { data: grants, error: grantsError } = await supabase
+    .from("user_permission_grants")
+    .select("*")
+    .eq("user_id", user.id);
+  if (grantsError) throw new Error("USER_PERMISSIONS_UNAVAILABLE");
+  const role = baseRole ? effectiveRole(baseRole, grants ?? []) : null;
   if (!role) redirect("/geen-toegang");
   return { supabase, user, profile, role, factors };
 });

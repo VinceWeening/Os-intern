@@ -33,13 +33,23 @@ export function RoleEditor({
     {},
   );
   function togglePermission(key: string, checked: boolean) {
-    setPermissions((old) =>
-      !checked && key === "cash.open"
-        ? []
-        : checked
-          ? Array.from(new Set([...old, "cash.open", key]))
-          : old.filter((item) => item !== key),
-    );
+    setPermissions((old) => {
+      if (!checked)
+        return old.filter(
+          (item) =>
+            item !== key &&
+            !(key === "cash.open" && item.startsWith("cash.")) &&
+            !(key === "day.open" && item === "day.edit"),
+        );
+      return [
+        ...new Set([
+          ...old,
+          key,
+          ...(key.startsWith("cash.") ? ["cash.open"] : []),
+          ...(key === "day.edit" ? ["day.open"] : []),
+        ]),
+      ];
+    });
   }
   return (
     <section

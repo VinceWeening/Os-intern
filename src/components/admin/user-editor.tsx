@@ -1,18 +1,25 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { UserGrantEditor } from "./user-grant-editor";
 import { ResultMessage } from "./result-message";
 import { saveUser } from "@/lib/admin/actions";
 import type { AccessRole } from "@/lib/auth/permissions";
-import type { Location, ManagedUser } from "@/lib/supabase/database.types";
+import type {
+  Location,
+  ManagedUser,
+  PermissionGrant,
+} from "@/lib/supabase/database.types";
 
 export function UserEditor({
+  grants,
   user,
   roles,
   locations,
   onClose,
   onSaved,
 }: {
+  grants: PermissionGrant[];
   user: ManagedUser;
   roles: AccessRole[];
   locations: Location[];
@@ -193,6 +200,14 @@ export function UserEditor({
           <span>→</span>
         </button>
       </form>
+      {user.has_profile ? (
+        <UserGrantEditor
+          user={user}
+          role={roles.find((r) => r.id === user.access_role_id)}
+          grants={grants}
+          onSaved={onSaved}
+        />
+      ) : null}
     </section>
   );
 }

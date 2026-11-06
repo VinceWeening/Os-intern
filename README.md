@@ -1,6 +1,8 @@
 # OS Werkplek
 
-Interne PWA voor OS Steakhouse Heiloo en Heerhugowaard. Next.js, TypeScript en Supabase. **Fase 1:** app-shell, login, authenticatorbeheer en read-only databasefundament. Kassa-afslagen invullen/opslaan volgt in fase 2 na review.
+Interne PWA voor OS Steakhouse Heiloo en Heerhugowaard. Next.js, TypeScript en Supabase. Gebouwd: login/authenticatorbeheer, rollen/rechten, handmatige kassa-afslag met controle/historie, instelbaar kasformulier, dagoverzicht en feedback in Mijn account. Nog geen bevestigde productieoplevering.
+
+Actuele planning: [roadmap](docs/ROADMAP.md), [backlog](docs/BACKLOG.md), [beslislog](docs/BESLISLOG.md) en [volledige projectvisie](docs/PROJECTVISIE.md). Eén afgesproken functie per keer.
 
 ## Lokaal bekijken
 
@@ -68,10 +70,18 @@ npm run build
 
 PGlite voert de echte migration/RLS uit met nagebootste Auth-tabellen/JWT-functies. MFA-serveracties gebruiken mocks. Live Supabase-login/MFA moet na koppeling nog getest worden; zie het functieblad.
 
-Vercel: importeer als Next.js-project. Development/Preview krijgen uitsluitend test-URL/key/ref met `NEXT_PUBLIC_APP_ENV=test`; Production een apart productieproject met `NEXT_PUBLIC_APP_ENV=production`. Geen service-role key. Voer migrations bewust per database uit, niet tijdens frontendbuilds. Lees `docs/PRODUCTIE.md` vóór publicatie.
+Hostingrichting sinds 3 november 2026: **Render**. Er is nog geen Render-deploymentconfiguratie ingericht. De eerdere Vercel-instructie is historisch. Development/Preview krijgen uitsluitend test-URL/key/ref met `NEXT_PUBLIC_APP_ENV=test`; Production een apart productieproject met `NEXT_PUBLIC_APP_ENV=production`. Geen service-role key. Voer migrations bewust per database uit, niet tijdens frontendbuilds. Lees `docs/PRODUCTIE.md` vóór publicatie.
 
-PWA: Safari → Delen → Zet op beginscherm; desktop via installatiepictogram Edge/Chrome. Beveiliging toont een installatieknop als de browser dat aanbiedt. HTTPS vereist buiten localhost. Geen service worker, automatische refresh of offline-opslag in fase 1.
+PWA: Safari → Delen → Zet op beginscherm; desktop via installatiepictogram Edge/Chrome. Beveiliging toont een installatieknop als de browser dat aanbiedt. HTTPS vereist buiten localhost. Geen service worker of automatische refresh. Kassa-invoer heeft beperkte lokale herstelopslag; uitgebreide offline sync is nog niet gebouwd.
 
 Nieuw: **Gebruikersbeheer** met eigen rollen, vestigingstoewijzing, account blokkeren/activeren, versiecontrole en wijzigingslog. Alleen beheerders kunnen dit gebruiken; Vince is de eerste beheerder. Zie `docs/GEBRUIKERSBEHEER.md` voor bestanden en teststappen.
 
-Nog niet beschikbaar: afsluitingen opslaan/indienen/controleren/heropenen, nieuwe Auth-accounts vanuit de app aanmaken, wachtwoordherstel of MFA-reset. Supabase is lokaal als test gekoppeld; Vercel-deployment nog niet ingericht. Het typografische OS-woordmerk is tijdelijk.
+Nog niet beschikbaar: nieuwe Auth-accounts vanuit de app aanmaken, wachtwoordherstel/MFA-reset, externe bronautomatisering en een geverifieerde productieoplevering. Supabase is lokaal als test gekoppeld; het bestaande OS-logo is verwerkt. De hostingrichting is Render.
+
+## Uitbreiding 2 november 2026
+
+Persoonlijke extra rechten (permanent of met eindmoment) staan in `docs/GEBRUIKERSBEHEER.md`. Via **Kasformulier instellen** kunnen beheerders per vestiging velden, standaardbedragen, minima en plus/minberekeningen aanpassen. Zie `docs/FORMULIERBEHEER.md` voor bediening, versies en teststappen. Bestaande tellingen behouden hun oorspronkelijke formulier.
+
+Het bestaande OS-logo wordt gebruikt voor het tabblad, de Apple-beginschermknop en de PWA-iconen. Een al geïnstalleerde app kan het oude icoon nog cachen; test de nieuwe iconen ook bij opnieuw toevoegen aan het beginscherm.
+
+Ook beschikbaar: **Idee of fout melden** voor actieve medewerkers en **Dagoverzicht** per vestiging/werkdatum met opmerkingen, autoritten, mee-eters, verspilling en bijbehorende kassa-afslag. Dagrechten stel je in via rollen of persoonlijke uitzonderingen. Zie `docs/DAGOVERZICHT-EN-FEEDBACK.md` voor bestanden, rechten en teststappen. Kassa-concepten vervallen na drie dagen zonder wijziging; lokaal blijft maximaal één herstelkopie per gebruiker/browser bewaard.

@@ -307,7 +307,7 @@
   color: var(--text);
   font: inherit;
   font-size: 16px;
-  resize: vertical;
+  resize: none;
   outline: none;
   line-height: 1.6;
 }
@@ -951,4 +951,103 @@
   .cash-sheet > .form-help {
     font-size: 9px;
   }
+}
+
+/* Compact entry: counting and payment entry share the available width. */
+.cash-form-heading { margin-bottom: 16px; }
+.cash-form-heading h1 { font-size: 32px; margin: 8px 0; }
+.cash-form-heading .eyebrow { display: none; }
+.cash-save-bar { padding: 10px 0; margin-bottom: 12px; }
+.cash-entry { margin-top: 12px; }
+.cash-entry .cash-section { padding: 16px 18px; margin-bottom: 14px; }
+.cash-entry .cash-section legend { font-size: 12px; }
+.cash-entry .cash-identity { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 18px; }
+.cash-identity > .cash-fields { display: contents; }
+.cash-identity .employee-field { margin: 0; }
+.cash-identity > .form-help { grid-column: 1/-1; }
+.cash-entry .cash-form-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.cash-entry .denomination-head { margin-top: 10px; }
+.cash-entry .denomination-row { padding: 3px 0; }
+.cash-entry .count-stepper input { min-height: 44px; padding: 7px 4px; font-size: 16px; }
+.cash-entry .opening-fields { margin: 10px 0 0; }
+.cash-payment-column .payment-input { display: grid; grid-template-columns: minmax(0, 1fr) minmax(100px, 140px); align-items: center; gap: 4px 12px; margin: 0; padding: 5px 0; border-bottom: 1px solid var(--line); }
+.cash-payment-column .payment-input label { margin: 0; font-size: 12px; line-height: 1.4; }
+.cash-payment-column .payment-input input { min-height: 44px; padding: 8px 10px; }
+.cash-payment-column .payment-input .form-help, .cash-payment-column .payment-input .field-error { grid-column: 1/-1; }
+.cash-payment-column .payment-group { margin-top: 12px; }
+.cash-payment-column .payment-group h3 { margin: 8px 0; }
+.cash-calculation-toggle { display: flex; align-items: center; gap: 9px; margin: 12px 0 0; color: var(--muted); }
+.cash-calculation-toggle input { width: 18px; min-height: 18px; height: 18px; margin: 0; padding: 0; accent-color: var(--accent); }
+.cash-notes > summary, .cash-full-summary > summary { cursor: pointer; font-size: 12px; font-weight: 600; color: var(--text); min-height: 28px; padding: 4px 0; }
+.cash-notes > fieldset { margin: 12px 0 0; padding: 0; border: 0; min-width: 0; }
+.cash-entry .cash-full-summary { position: static; padding: 12px 18px; margin: 0 0 14px; }
+.cash-entry .cash-full-summary .cash-totals { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 0 18px; }
+@media(max-width: 1050px) {
+ .cash-entry .cash-form-columns { grid-template-columns: minmax(0,1fr); }
+}
+@media(max-width: 760px) {
+ .cash-entry .cash-identity { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px 12px; }
+ .cash-identity .employee-field { grid-column: 1/-1; }
+ .cash-entry .cash-section { padding: 12px; }
+ .cash-entry .count-intro { flex-direction: row; align-items: center; gap: 10px; }
+ .cash-entry .count-intro > .form-help { font-size: 9px; }
+ .cash-entry .count-mode button { min-width: 58px; padding: 0 8px; }
+ .cash-entry .denomination-head,.cash-entry .denomination-row { grid-template-columns: 60px minmax(0,1fr) 65px; gap: 8px; }
+ .cash-entry .cash-full-summary .cash-totals { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+.cash-entry .denomination-group > h3 { display: none; }
+@media(min-width: 1450px) {
+ .cash-entry .denomination-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px; }
+ .cash-entry .denomination-group > h3 { display:block;font-size:11px;font-weight:600;color:var(--muted);margin:12px 0 6px; }
+ .cash-entry .denomination-head { display:none; }
+ .cash-entry .denomination-row { grid-template-columns:52px minmax(0,1fr) 66px;gap:6px; }
+ .cash-entry .count-stepper { grid-template-columns:28px minmax(0,1fr) 28px; }
+ .cash-entry .denomination-row > label,.cash-entry .denomination-row output { font-size:12px; }
+}
+
+/* Use the available desktop viewport instead of the narrow reading column.
+   Keep natural overflow for errors, expanded details and smaller screens. */
+@media screen and (min-width: 1320px) and (min-height: 780px) {
+ .content:has(.cash-entry) { width:100%;max-width:1660px;padding:6px 24px 0; }
+ .workplace:has(.cash-entry) > .topbar { height:44px; }
+ .content:has(.cash-entry) > .content-footer { display:none; }
+ .cash-form-heading { margin:0 0 4px; }
+ .cash-form-heading h1 { font-size:24px;line-height:1.15;margin:0; }
+ .cash-form-heading p { display:none; }
+ .cash-save-bar { padding:3px 0;margin-bottom:4px; }
+ .cash-entry { margin-top:6px; }
+ .cash-entry .cash-section { padding:8px 14px;margin-bottom:8px; }
+ .cash-entry .cash-identity { gap:4px 14px; }
+ .cash-identity > .form-help,.cash-identity .default-location.is-set { display:none; }
+ .cash-identity label,.cash-identity .field-label { margin-bottom:5px; }
+ .cash-identity input,.cash-identity select,.cash-identity .static-field { min-height:44px;padding:8px 12px; }
+ .cash-entry .cash-form-columns { gap:14px; }
+ .cash-entry .denomination-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px; }
+ .cash-entry .denomination-group > h3 { display:block;font-size:11px;font-weight:600;color:var(--muted);margin:6px 0 2px; }
+ .cash-entry .denomination-head { display:none; }
+ .cash-entry .denomination-row { grid-template-columns:50px minmax(0,1fr) 62px;gap:6px;padding:0; }
+ .cash-entry .count-stepper { grid-template-columns:28px minmax(0,1fr) 28px; }
+ .cash-entry .denomination-row > label,.cash-entry .denomination-row output { font-size:12px; }
+ .cash-entry .count-intro > .form-help { line-height:1.4; }
+ .cash-entry .denomination-total { margin-top:8px;padding:6px 0 4px; }
+ .cash-entry .opening-fields { grid-template-columns:minmax(0,1fr);margin-top:8px; }
+ .cash-entry .opening-fields > div:first-child { display:grid;grid-template-columns:minmax(0,1fr) 130px;align-items:center;gap:4px 10px; }
+ .cash-entry .opening-fields > div:first-child > label { margin:0; }
+ .cash-entry .opening-fields > div:first-child > .form-help,.cash-entry .opening-fields > div:first-child > .field-error { grid-column:1/-1; }
+ .cash-entry .opening-fields input { min-height:44px;padding:8px 12px; }
+ .cash-payment-column .payment-input { padding:2px 0; }
+ .cash-calculation-toggle { margin-top:8px; }
+ .cash-entry .cash-full-summary { padding:8px 14px;margin-bottom:10px; }
+ .cash-entry .cash-dock { margin:0;padding:10px 14px;gap:16px; }
+}
+@media screen and (min-width:1320px) and (min-height:780px) {
+ .cash-entry .opening-fields:not(:has(#openingReason)) > div:first-child > .form-help { display:none; }
+}
+@media screen and (min-width:761px) and (max-width:1319px) {
+ .content:has(.cash-entry) { padding-top:12px; }
+ .workplace:has(.cash-entry) > .topbar { height:48px; }
+ .cash-form-heading { margin-bottom:6px; }
+ .cash-form-heading h1 { font-size:26px;margin:2px 0; }
+ .cash-form-heading p { display:none; }
+ .cash-save-bar { padding:4px 0;margin-bottom:6px; }
 }

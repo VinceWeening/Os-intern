@@ -1,0 +1,123 @@
+{
+  "opening": 15000,
+  "fields": [
+    {
+      "key": "turnover_cents",
+      "label": "Omzet op de kassa",
+      "kind": "input",
+      "required": true,
+      "minimum": 0,
+      "default": 0,
+      "terms": []
+    },
+    {
+      "key": "sold_vouchers_cents",
+      "label": "Verkochte cadeaubonnen",
+      "kind": "input",
+      "required": true,
+      "minimum": 0,
+      "default": 0,
+      "terms": []
+    },
+    {
+      "key": "ideal_cents",
+      "label": "iDEAL",
+      "kind": "input",
+      "required": true,
+      "minimum": 0,
+      "default": 0,
+      "terms": []
+    },
+    {
+      "key": "pax_cents",
+      "label": "PAX dagafsluiting",
+      "kind": "input",
+      "required": true,
+      "minimum": 0,
+      "default": 0,
+      "terms": []
+    },
+    {
+      "key": "paynl_cents",
+      "label": "Pay.nl",
+      "kind": "input",
+      "required": true,
+      "minimum": 0,
+      "default": 0,
+      "terms": []
+    },
+    {
+      "key": "shop_vouchers_cents",
+      "label": "Winkelbonnen",
+      "kind": "input",
+      "required": true,
+      "minimum": 0,
+      "default": 0,
+      "terms": []
+    },
+    {
+      "key": "redeemed_vouchers_cents",
+      "label": "Verzilverde cadeaubonnen",
+      "kind": "input",
+      "required": true,
+      "minimum": 0,
+      "default": 0,
+      "terms": []
+    },
+    {
+      "key": "cash",
+      "label": "Contant geld",
+      "kind": "calculated",
+      "required": true,
+      "minimum": 0,
+      "default": null,
+      "terms": [
+        { "key": "counted", "sign": 1 },
+        { "key": "opening", "sign": -1 }
+      ]
+    },
+    {
+      "key": "required",
+      "label": "Totaal benodigd",
+      "kind": "calculated",
+      "required": true,
+      "minimum": null,
+      "default": null,
+      "terms": [
+        { "key": "turnover_cents", "sign": 1 },
+        { "key": "sold_vouchers_cents", "sign": 1 }
+      ]
+    },
+    {
+      "key": "result",
+      "label": "Resultaat",
+      "kind": "calculated",
+      "required": true,
+      "minimum": null,
+      "default": null,
+      "terms": [
+        { "key": "required", "sign": 1 },
+        { "key": "ideal_cents", "sign": -1 },
+        { "key": "shop_vouchers_cents", "sign": -1 },
+        { "key": "redeemed_vouchers_cents", "sign": -1 },
+        { "key": "pax_cents", "sign": -1 },
+        { "key": "paynl_cents", "sign": -1 },
+        { "key": "cash", "sign": -1 }
+      ]
+    },
+    {
+      "key": "register",
+      "label": "In te vullen in de kassa",
+      "kind": "calculated",
+      "required": true,
+      "minimum": null,
+      "default": null,
+      "terms": [
+        { "key": "pax_cents", "sign": 1 },
+        { "key": "paynl_cents", "sign": 1 },
+        { "key": "cash", "sign": 1 },
+        { "key": "opening", "sign": 1 }
+      ]
+    }
+  ]
+}

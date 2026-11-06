@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { PERMISSIONS, type AccessRole } from "@/lib/auth/permissions";
 import type {
+  PermissionGrant,
   AccessEvent,
   Location,
   ManagedUser,
@@ -11,6 +12,7 @@ import { UserEditor } from "./user-editor";
 import { RoleEditor } from "./role-editor";
 
 type Props = {
+  grants: PermissionGrant[];
   users: ManagedUser[];
   roles: AccessRole[];
   locations: Location[];
@@ -18,6 +20,7 @@ type Props = {
   actors: { id: string; full_name: string }[];
 };
 export function UserManagement({
+  grants,
   users,
   roles,
   locations,
@@ -139,6 +142,7 @@ export function UserManagement({
           {user ? (
             <UserEditor
               key={`${user.id}-${user.management_version}`}
+              grants={grants.filter((g) => g.user_id === user.id)}
               user={user}
               roles={roles}
               locations={locations}
@@ -258,8 +262,12 @@ export function UserManagement({
                       "Beheerder"}
                   </span>
                   <strong>
-                    {event.entity_type === "role" ? "Rol" : "Gebruiker"} —{" "}
-                    {event.reason}
+                    {event.entity_type === "role"
+                      ? "Rol"
+                      : event.entity_type === "form"
+                        ? "Kasformulier"
+                        : "Gebruiker"}{" "}
+                    — {event.reason}
                   </strong>
                 </summary>
                 <div className="audit-values">

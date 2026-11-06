@@ -26,8 +26,8 @@ Vóór productie: eigenaar/vervanger, bewaartermijn, maximaal dataverlies (RPO) 
 
 ## PWA en updates
 
-Nog geen service worker/automatische refresh. Fase 2 moet invoer bij uitval behouden; bepaal hoe lokale gegevens op gedeelde toestellen worden afgeschermd/opgeruimd. Een later update-/cachemechanisme mag geen open formulier herladen of gevoelige HTML offline bewaren. Test installeren/heropenen op echte iPhone/iPad met HTTPS.
+Nog geen service worker/automatische refresh. Kassa-invoer heeft beperkte lokale herstelopslag (maximaal één kopie per gebruiker/browser, drie dagen voor gewone herstelkopieën); toets de afscherming op gedeelde toestellen en netwerkuitval in de praktijk. Een later update-/cachemechanisme mag geen open formulier herladen of gevoelige HTML offline bewaren. Test installeren/heropenen op echte iPhone/iPad met HTTPS.
 
-Schrijfworkflow, managercontrole en herstelproef zijn nog niet gebouwd/uitgevoerd. Fase 1 is geen productieklare financiële administratie.
+Schrijfworkflow en managercontrole zijn inmiddels gebouwd. De herstelproef en volledige productie-/mobiele oplevering staan nog open. Zie ROADMAP.md voor de actuele status. Hostingrichting sinds 3 november 2026: Render; nog geen deployment in deze documentatiestap ingericht.
 
 Bronnen: [Supabase SSR](https://supabase.com/docs/guides/auth/server-side/creating-a-client), [TOTP](https://supabase.com/docs/guides/auth/auth-mfa/totp), [RLS](https://supabase.com/docs/guides/database/postgres/row-level-security), [back-ups](https://supabase.com/docs/guides/platform/backups), [Next.js PWA](https://nextjs.org/docs/app/guides/progressive-web-apps). Provideropties bij ingebruikname opnieuw controleren.

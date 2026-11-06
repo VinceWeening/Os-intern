@@ -16,6 +16,7 @@ export default async function WerkplekLayout({
       role={role.name}
       canManage={role.is_admin}
       cashAllowed={hasPermission(role, "cash.open")}
+      canDaily={hasPermission(role, "day.open")}
       canReport={hasPermission(role, "cash.reports")}
     >
       {children}

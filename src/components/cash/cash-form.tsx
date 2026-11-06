@@ -16,33 +16,30 @@ import {
   type CountRow,
 } from "@/lib/cash/model";
 import {
-  readLocalDraft,
+  tidyLocalDrafts,
+  writeLocalDraft,
+  removeLocalDraft,
   localKey,
   type LocalDraft,
 } from "@/lib/cash/local-draft";
 import { saveCash, setDefaultLocation } from "@/lib/cash/actions";
 import type { CashSnapshot, Location } from "@/lib/supabase/database.types";
-import { CashGlance, CashTotals } from "./totals";
+import { CashGlance, CashOverview } from "./totals";
+import { PaymentTable } from "./payment-table";
+import "./paper-entry.css";
 import { CashSheet } from "./cash-sheet";
+
+import {
+  evaluateDefinition,
+  type FormDefinition,
+  type FormVersion,
+} from "@/lib/cash/form-definition";
+import defaultForm from "@/lib/cash/default-form.json";
 
 type CountMode = CountRow["edited"];
 const COUNT_MODE_KEY = "os-werkplek:tellen-in";
-// "cash" is geen invulveld: contant geld volgt uit de telling.
-const PAYMENT_GROUPS = [
-  { title: "Omzet", keys: ["turnover_cents", "sold_vouchers_cents"] },
-  {
-    title: "Betaald via",
-    keys: [
-      "ideal_cents",
-      "cash",
-      "pax_cents",
-      "paynl_cents",
-      "shop_vouchers_cents",
-      "redeemed_vouchers_cents",
-    ],
-  },
-] as const;
 type Props = {
+  forms?: FormVersion[];
   id: string;
   userId: string;
   name: string;
@@ -55,6 +52,7 @@ type Props = {
   staff?: Record<string, { id: string; full_name: string }[]> | null;
 };
 export function CashForm({
+  forms = [],
   id,
   userId,
   name,
@@ -74,6 +72,10 @@ export function CashForm({
           date,
           locations.find((l) => l.id === locationId)?.default_opening_cents ??
             15000,
+          forms.find(
+            (f) =>
+              f.id === locations.find((l) => l.id === locationId)?.cash_form_id,
+          ),
         ),
   );
   const [version, setVersion] = useState(initial?.closing.version ?? 0);
@@ -97,6 +99,33 @@ export function CashForm({
     locations.find((l) => l.id === draft.locationId)?.default_opening_cents ??
     15000;
   const checked = validateDraft(draft, false, defaultOpening);
+  const customValues = draft.formDefinition
+    ? evaluateDefinition(
+        draft.formDefinition,
+        checked.payload.custom_inputs ?? {},
+        checked.totals.counted,
+        checked.payload.opening_cents,
+      ).values
+    : {};
+  // Older drafts have no stored form; they follow the standard calculation.
+  const overviewDefinition =
+    draft.formDefinition ?? (defaultForm as FormDefinition);
+  const overviewInputs = draft.formDefinition
+    ? (checked.payload.custom_inputs ?? {})
+    : Object.fromEntries(
+        MONEY_FIELDS.map((f) => [f.key, checked.payload[f.key]]),
+      );
+  // Omzet = what makes up "Totaal benodigd"; every other amount is a payment.
+  const turnoverKeys =
+    overviewDefinition.fields
+      .find((f) => f.key === "required")
+      ?.terms.filter((t) => t.sign === 1)
+      .map((t) => t.key) ?? [];
+  const paymentKeys = overviewDefinition.fields
+    .filter((f) => f.kind === "input" && !turnoverKeys.includes(f.key))
+    .map((f) => f.key);
+  const locationName =
+    locations.find((l) => l.id === draft.locationId)?.name ?? "";
   const shared = Boolean(staff);
   const staffHere = staff?.[draft.locationId] ?? [];
   const employeeName = shared
@@ -113,9 +142,15 @@ export function CashForm({
     checked.totals.counted > 0 &&
     checked.totals.result !== null &&
     checked.totals.result > 0;
-  const emptyAmounts = MONEY_FIELDS.filter(
-    (field) => draft.amounts[field.key].trim() === "",
-  ).length;
+  const emptyAmounts = draft.formDefinition
+    ? draft.formDefinition.fields.filter(
+        (f) =>
+          f.kind === "input" &&
+          f.required &&
+          !(draft.customAmounts?.[f.key] ?? "").trim(),
+      ).length
+    : MONEY_FIELDS.filter((field) => draft.amounts[field.key].trim() === "")
+        .length;
   const lockedIdentity = Boolean(initial?.closing.first_submitted_at);
   const blocked = busy || submissionKey !== null || Boolean(recovery && !dirty);
   const key = localKey(userId, id);
@@ -134,7 +169,7 @@ export function CashForm({
         savedAt: new Date().toISOString(),
         submissionKey: pendingKey,
       };
-      localStorage.setItem(key, JSON.stringify(item));
+      writeLocalDraft(localStorage, item);
       setLocalError(false);
     } catch {
       setLocalError(true);
@@ -151,7 +186,8 @@ export function CashForm({
   useEffect(() => {
     setOnline(navigator.onLine);
     try {
-      setRecovery(readLocalDraft(localStorage.getItem(key), userId, id));
+      const found = tidyLocalDrafts(localStorage, userId);
+      setRecovery(found?.id === id ? found : null);
     } catch {
       setLocalError(true);
     }
@@ -312,7 +348,7 @@ export function CashForm({
       setSubmissionKey(null);
       setRecovery(null);
       try {
-        localStorage.removeItem(key);
+        removeLocalDraft(localStorage, userId, id);
       } catch {
         /* No server data is lost. */
       }
@@ -321,7 +357,9 @@ export function CashForm({
         setReview(false);
         router.push("/kassa-afslag?melding=ingediend");
       } else {
-        setMessage("Concept centraal opgeslagen.");
+        setMessage(
+          "Concept centraal opgeslagen. Het vervalt na 3 dagen zonder wijziging.",
+        );
         if (!initial) router.replace(`/kassa-afslag/${id}`);
       }
     } catch {
@@ -416,7 +454,7 @@ export function CashForm({
                     "Niet centraal opgeslagen lokale invoer verwijderen en de serverversie gebruiken?",
                   )
                 ) {
-                  localStorage.removeItem(key);
+                  removeLocalDraft(localStorage, userId, id);
                   setRecovery(null);
                 }
               }}
@@ -428,8 +466,9 @@ export function CashForm({
       ) : null}
       {localError ? (
         <p className="notice error" role="alert">
-          Deze browser kan invoer niet lokaal bewaren. Laat het scherm open tot
-          centrale opslag bevestigd is.
+          De lokale herstelkopie kon niet worden bewaard. Controleer via het
+          overzicht of er nog een onzekere indiening openstaat. Laat dit scherm
+          open tot centrale opslag bevestigd is.
         </p>
       ) : null}
       {submissionKey && !busy ? (
@@ -474,12 +513,14 @@ export function CashForm({
       ) : null}
       {review ? (
         <>
-          <section className="notice no-print">
-            <strong>Controleer vóór definitief indienen</strong>
-            <p>
-              Na indienen kun je niet vrij wijzigen. Een bevoegde manager moet
-              de afslag eerst heropenen.
-            </p>
+          <section className="panel review-bar no-print">
+            <div>
+              <strong>Controleer vóór definitief indienen</strong>
+              <p>
+                Na indienen kun je niet vrij wijzigen. Een bevoegde manager
+                moet de afslag eerst heropenen.
+              </p>
+            </div>
             <div className="button-row">
               <button
                 className="button primary"
@@ -508,7 +549,7 @@ export function CashForm({
         </>
       ) : (
         <form
-          className="cash-entry"
+          className="cash-entry paper-cash-entry"
           onSubmit={(event) => {
             event.preventDefault();
             const result = validateDraft(draft, true, defaultOpening);
@@ -523,7 +564,10 @@ export function CashForm({
               );
           }}
         >
-          <fieldset className="panel cash-section" disabled={blocked}>
+          <fieldset
+            className="panel cash-section cash-identity"
+            disabled={blocked}
+          >
             <legend>1 · Medewerker, vestiging en werkdatum</legend>
             <div className="employee-field">
               {shared ? (
@@ -581,6 +625,26 @@ export function CashForm({
                       onChange={(event) =>
                         change((old) => ({
                           ...old,
+                          ...(() => {
+                            const form = forms.find(
+                              (f) =>
+                                f.id ===
+                                locations.find(
+                                  (l) => l.id === event.target.value,
+                                )?.cash_form_id,
+                            );
+                            const fresh = emptyDraft(
+                              event.target.value,
+                              date,
+                              form?.definition.opening ?? 15000,
+                              form,
+                            );
+                            return {
+                              formId: fresh.formId,
+                              formDefinition: fresh.formDefinition,
+                              customAmounts: fresh.customAmounts,
+                            };
+                          })(),
                           locationId: event.target.value,
                           employeeId: staff?.[event.target.value]?.some(
                             (s) => s.id === old.employeeId,
@@ -656,8 +720,9 @@ export function CashForm({
               De werkdatum staat los van het exacte indienmoment.
             </p>
           </fieldset>
+          <div className="cash-entry-main">
           <div className="cash-form-columns">
-            <div>
+            <div className="cash-count-column">
               <fieldset className="panel cash-section" disabled={blocked}>
                 <legend>2 · Geld tellen</legend>
                 <div className="count-intro">
@@ -699,93 +764,122 @@ export function CashForm({
                     {countMode === "quantity" ? "Subtotaal" : "Stuks"}
                   </span>
                 </div>
-                {DENOMINATIONS.map((d, index) => {
-                  const row = normalizeRow(d, draft.rows[d]);
-                  const raw = draft.rows[d];
-                  const shown =
-                    raw.edited === countMode
-                      ? raw[countMode]
-                      : !row
-                        ? raw[raw.edited]
-                        : !row.quantity
-                          ? ""
-                          : countMode === "amount"
-                            ? inputMoney(row.quantity * d)
-                            : String(row.quantity);
-                  return (
-                    <div className="denomination-row" key={d}>
-                      <label htmlFor={`count-${d}`}>{euro(d)}</label>
-                      <div className="count-stepper">
-                        <button
-                          type="button"
-                          tabIndex={-1}
-                          aria-label={`Eén ${euro(d)} minder`}
-                          disabled={!row?.quantity}
-                          onClick={() => step(d, -1)}
-                        >
-                          −
-                        </button>
-                        <input
-                          id={`count-${d}`}
-                          inputMode={
-                            countMode === "quantity" ? "numeric" : "decimal"
-                          }
-                          autoComplete="off"
-                          enterKeyHint={
-                            index < DENOMINATIONS.length - 1 ? "next" : "done"
-                          }
-                          placeholder={countMode === "quantity" ? "0" : "0,00"}
-                          value={shown}
-                          aria-invalid={Boolean(errors[`count-${d}`])}
-                          aria-describedby={
-                            errors[`count-${d}`]
-                              ? `error-count-${d}`
-                              : undefined
-                          }
-                          onFocus={(event) => event.target.select()}
-                          onChange={(event) => {
-                            const value = event.target.value;
-                            setRow(d, () => ({
-                              quantity: countMode === "quantity" ? value : "",
-                              amount: countMode === "amount" ? value : "",
-                              edited: countMode,
-                            }));
-                          }}
-                          onBlur={() => normalize(d)}
-                          onKeyDown={(event) => {
-                            if (event.key !== "Enter") return;
-                            event.preventDefault();
-                            const next = DENOMINATIONS[index + 1];
-                            document
-                              .getElementById(
-                                next ? `count-${next}` : "opening",
-                              )
-                              ?.focus();
-                          }}
-                        />
-                        <button
-                          type="button"
-                          tabIndex={-1}
-                          aria-label={`Eén ${euro(d)} meer`}
-                          onClick={() => step(d, 1)}
-                        >
-                          +
-                        </button>
+                <div className="denomination-grid">
+                  {[
+                    {
+                      label: "Biljetten",
+                      denominations: DENOMINATIONS.filter((d) => d >= 500),
+                    },
+                    {
+                      label: "Munten",
+                      denominations: DENOMINATIONS.filter((d) => d < 500),
+                    },
+                  ].map((group) => (
+                    <div className="denomination-group" key={group.label}>
+                      <h3>{group.label}</h3>
+                      <div className="paper-count-head" aria-hidden="true">
+                        <span>Waarde</span>
+                        <span>{countMode === "quantity" ? "Aantal" : "Bedrag"}</span>
+                        <span>{countMode === "quantity" ? "Bedrag" : "Aantal"}</span>
                       </div>
-                      <output
-                        htmlFor={`count-${d}`}
-                        className={row?.quantity ? "" : "is-empty"}
-                      >
-                        {!row
-                          ? "?"
-                          : countMode === "quantity"
-                            ? euro(row.quantity * d)
-                            : `${row.quantity} st.`}
-                      </output>
-                      {error(`count-${d}`)}
+                      {group.denominations.map((d) => {
+                        const index = DENOMINATIONS.indexOf(d);
+                        const row = normalizeRow(d, draft.rows[d]);
+                        const raw = draft.rows[d];
+                        const shown =
+                          raw.edited === countMode
+                            ? raw[countMode]
+                            : !row
+                              ? raw[raw.edited]
+                              : !row.quantity
+                                ? ""
+                                : countMode === "amount"
+                                  ? inputMoney(row.quantity * d)
+                                  : String(row.quantity);
+                        return (
+                          <div className="denomination-row" key={d}>
+                            <label htmlFor={`count-${d}`}>{euro(d)}</label>
+                            <div className="count-stepper">
+                              <button
+                                type="button"
+                                tabIndex={-1}
+                                aria-label={`Eén ${euro(d)} minder`}
+                                disabled={!row?.quantity}
+                                onClick={() => step(d, -1)}
+                              >
+                                −
+                              </button>
+                              <input
+                                id={`count-${d}`}
+                                inputMode={
+                                  countMode === "quantity"
+                                    ? "numeric"
+                                    : "decimal"
+                                }
+                                autoComplete="off"
+                                enterKeyHint={
+                                  index < DENOMINATIONS.length - 1
+                                    ? "next"
+                                    : "done"
+                                }
+                                placeholder={
+                                  countMode === "quantity" ? "0" : "0,00"
+                                }
+                                value={shown}
+                                aria-invalid={Boolean(errors[`count-${d}`])}
+                                aria-describedby={
+                                  errors[`count-${d}`]
+                                    ? `error-count-${d}`
+                                    : undefined
+                                }
+                                onFocus={(event) => event.target.select()}
+                                onChange={(event) => {
+                                  const value = event.target.value;
+                                  setRow(d, () => ({
+                                    quantity:
+                                      countMode === "quantity" ? value : "",
+                                    amount: countMode === "amount" ? value : "",
+                                    edited: countMode,
+                                  }));
+                                }}
+                                onBlur={() => normalize(d)}
+                                onKeyDown={(event) => {
+                                  if (event.key !== "Enter") return;
+                                  event.preventDefault();
+                                  const next = DENOMINATIONS[index + 1];
+                                  document
+                                    .getElementById(
+                                      next ? `count-${next}` : "opening",
+                                    )
+                                    ?.focus();
+                                }}
+                              />
+                              <button
+                                type="button"
+                                tabIndex={-1}
+                                aria-label={`Eén ${euro(d)} meer`}
+                                onClick={() => step(d, 1)}
+                              >
+                                +
+                              </button>
+                            </div>
+                            <output
+                              htmlFor={`count-${d}`}
+                              className={row?.quantity ? "" : "is-empty"}
+                            >
+                              {!row
+                                ? "?"
+                                : countMode === "quantity"
+                                  ? euro(row.quantity * d)
+                                  : `${row.quantity} st.`}
+                            </output>
+                            {error(`count-${d}`)}
+                          </div>
+                        );
+                      })}
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
                 <div className="denomination-total">
                   <span>Totaal geteld</span>
                   <strong>{euro(checked.totals.counted)}</strong>
@@ -831,6 +925,12 @@ export function CashForm({
                     </div>
                   ) : null}
                 </div>
+                <div className="paper-net-cash">
+                  <span>Contant geld</span>
+                  <output>
+                    {checked.totals.cash < 0 ? "—" : euro(checked.totals.cash)}
+                  </output>
+                </div>
                 {checked.totals.cash < 0 && checked.totals.counted > 0 ? (
                   <p className="notice">
                     Geteld geld ligt {euro(-checked.totals.cash)} onder het
@@ -840,11 +940,13 @@ export function CashForm({
                 ) : null}
                 {error("cash")}
               </fieldset>
-              <fieldset className="panel cash-section" disabled={blocked}>
-                <legend>3 · Omzet en betaalwijzen</legend>
+            </div>
+            <div className="cash-payment-column">
+              <fieldset className="panel cash-section cash-turnover" disabled={blocked}>
+                <legend>3 · Omzet</legend>
                 <p className="form-help">
-                  Alles staat standaard op € 0,00. Vul alleen in wat vanavond is
-                  gebruikt.
+                  Vul de bedragen in volgens de formulierinstellingen van deze
+                  vestiging.
                   {emptyAmounts ? (
                     <strong className="payment-progress">
                       {" "}
@@ -853,112 +955,188 @@ export function CashForm({
                     </strong>
                   ) : null}
                 </p>
-                {PAYMENT_GROUPS.map((group) => (
-                  <div className="payment-group" key={group.title}>
-                    <h3>{group.title}</h3>
-                    {group.keys.map((key) => {
-                      if (key === "cash")
-                        return (
-                          <div className="payment-input" key={key}>
-                            <span className="payment-label">
-                              Contant geld <span>· uit je telling</span>
-                            </span>
-                            <output className="payment-computed">
-                              {checked.totals.cash >= 0
-                                ? euro(checked.totals.cash)
-                                : "—"}
-                            </output>
-                          </div>
-                        );
-                      const field = MONEY_FIELDS.find((f) => f.key === key)!;
-                      const value = draft.amounts[key];
-                      return (
-                        <div
-                          className={`payment-input${parseMoney(value) === 0 ? " is-zero" : ""}`}
-                          key={key}
-                        >
-                          <label htmlFor={key}>{field.label} (€)</label>
-                          <input
-                            id={key}
-                            inputMode="decimal"
-                            autoComplete="off"
-                            placeholder="0,00"
-                            value={value}
-                            aria-invalid={Boolean(errors[key])}
-                            onFocus={(event) => event.target.select()}
-                            onChange={(event) =>
-                              change((old) => ({
-                                ...old,
-                                amounts: {
-                                  ...old.amounts,
-                                  [key]: event.target.value,
-                                },
-                              }))
-                            }
-                            onBlur={() => {
-                              const cents = parseMoney(value);
-                              if (cents !== null && value !== inputMoney(cents))
-                                change((old) => ({
-                                  ...old,
-                                  amounts: {
-                                    ...old.amounts,
-                                    [key]: inputMoney(cents),
-                                  },
-                                }));
-                            }}
-                          />
-                          {error(key)}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
-              </fieldset>
-              <fieldset className="panel cash-section" disabled={blocked}>
-                <legend>
-                  4 · {shortage ? "Toelichting en opmerkingen" : "Opmerkingen"}
-                </legend>
-                {shortage ? (
-                  <>
-                    <label htmlFor="explanation">
-                      Toelichting tekort · verplicht
-                    </label>
-                    <textarea
-                      id="explanation"
-                      maxLength={4000}
-                      value={draft.explanation}
-                      onChange={(event) =>
-                        change((old) => ({
-                          ...old,
-                          explanation: event.target.value,
-                        }))
-                      }
-                    />
-                    {error("explanation")}
-                  </>
-                ) : null}
-                <label htmlFor="notes">
-                  Algemene opmerkingen <span>· optioneel</span>
-                </label>
-                <textarea
-                  id="notes"
-                  maxLength={4000}
-                  value={draft.notes}
-                  onChange={(event) =>
-                    change((old) => ({ ...old, notes: event.target.value }))
+                <PaymentTable
+                  definition={draft.formDefinition}
+                  amounts={
+                    draft.formDefinition
+                      ? (draft.customAmounts ?? {})
+                      : draft.amounts
                   }
+                  values={
+                    draft.formDefinition
+                      ? customValues
+                      : {
+                          ...Object.fromEntries(
+                            MONEY_FIELDS.map((field) => [
+                              field.key,
+                              checked.payload[field.key],
+                            ]),
+                          ),
+                          counted: checked.totals.counted,
+                          cash: checked.totals.cash,
+                          required: checked.totals.required,
+                          result: checked.totals.result,
+                          register: checked.totals.register,
+                        }
+                  }
+                  errors={errors}
+                  calculations={false}
+                  keys={turnoverKeys}
+                  onChange={(key, value) => {
+                    change((old) =>
+                      old.formDefinition
+                        ? {
+                            ...old,
+                            customAmounts: {
+                              ...old.customAmounts,
+                              [key]: value,
+                            },
+                          }
+                        : { ...old, amounts: { ...old.amounts, [key]: value } },
+                    );
+                  }}
                 />
               </fieldset>
+              <fieldset className="panel cash-section cash-payments" disabled={blocked}>
+                <legend>4 · Betaalwijzen</legend>
+                <PaymentTable
+                  definition={draft.formDefinition}
+                  amounts={
+                    draft.formDefinition
+                      ? (draft.customAmounts ?? {})
+                      : draft.amounts
+                  }
+                  values={
+                    draft.formDefinition
+                      ? customValues
+                      : {
+                          ...Object.fromEntries(
+                            MONEY_FIELDS.map((field) => [
+                              field.key,
+                              checked.payload[field.key],
+                            ]),
+                          ),
+                          counted: checked.totals.counted,
+                          cash: checked.totals.cash,
+                          required: checked.totals.required,
+                          result: checked.totals.result,
+                          register: checked.totals.register,
+                        }
+                  }
+                  errors={errors}
+                  calculations={false}
+                  keys={paymentKeys}
+                  onChange={(key, value) => {
+                    change((old) =>
+                      old.formDefinition
+                        ? {
+                            ...old,
+                            customAmounts: {
+                              ...old.customAmounts,
+                              [key]: value,
+                            },
+                          }
+                        : { ...old, amounts: { ...old.amounts, [key]: value } },
+                    );
+                  }}
+                />
+              </fieldset>
+              <details
+                className="panel cash-section cash-notes"
+                open={
+                  shortage ||
+                  Boolean(draft.notes) ||
+                  Boolean(draft.explanation) ||
+                  Boolean(errors.explanation) ||
+                  Boolean(errors.notes)
+                }
+              >
+                <summary>
+                  5 ·{" "}
+                  {shortage || errors.explanation
+                    ? "Toelichting en opmerkingen"
+                    : "Opmerkingen"}
+                </summary>
+                <fieldset
+                  disabled={blocked}
+                  aria-label="Toelichting en opmerkingen"
+                >
+                  {shortage || errors.explanation || draft.explanation ? (
+                    <>
+                      <label htmlFor="explanation">
+                        Toelichting tekort · verplicht
+                      </label>
+                      <textarea
+                        id="explanation"
+                        maxLength={4000}
+                        value={draft.explanation}
+                        onChange={(event) =>
+                          change((old) => ({
+                            ...old,
+                            explanation: event.target.value,
+                          }))
+                        }
+                      />
+                      {error("explanation")}
+                    </>
+                  ) : null}
+                  <label htmlFor="notes">
+                    Algemene opmerkingen <span>· optioneel</span>
+                  </label>
+                  <textarea
+                    id="notes"
+                    maxLength={4000}
+                    value={draft.notes}
+                    onChange={(event) =>
+                      change((old) => ({ ...old, notes: event.target.value }))
+                    }
+                  />
+                  {error("notes")}
+                </fieldset>
+              </details>
             </div>
-            <aside className="panel cash-summary">
-              <h2>Jouw telling</h2>
-              <CashTotals totals={checked.totals} />
-              <p className="form-help">
-                Totaal benodigd = omzet + verkochte cadeaubonnen. Resultaat =
-                benodigd − alle betaalwijzen − contant geld.
-              </p>
-            </aside>
           </div>
+          </div>
+          <aside
+            className="panel cash-overview"
+            aria-label="Overzicht en berekening"
+          >
+            <header className="cash-overview-head">
+              <h2>Overzicht</h2>
+              <p>
+                {[locationName, draft.workDate
+                  ? new Date(`${draft.workDate}T12:00:00`).toLocaleDateString(
+                      "nl-NL",
+                      { weekday: "short", day: "numeric", month: "short" },
+                    )
+                  : ""]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+            </header>
+            <CashOverview
+              definition={overviewDefinition}
+              inputs={overviewInputs}
+              totals={checked.totals}
+            />
+            <div className="cash-overview-actions no-print">
+              <button
+                type="submit"
+                className="button primary"
+                disabled={blocked}
+              >
+                Samenvatting en indienen →
+              </button>
+              <button
+                type="button"
+                className="button secondary"
+                disabled={blocked}
+                onClick={() => save(false)}
+              >
+                Concept opslaan
+              </button>
+            </div>
+          </aside>
           <div className="cash-dock no-print">
             <CashGlance totals={checked.totals} />
             <div className="cash-dock-actions">

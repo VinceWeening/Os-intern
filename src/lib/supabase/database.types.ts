@@ -1,3 +1,5 @@
+import type { DailySummary, DailyInput, Feedback } from "@/lib/daily/model";
+import type { FormVersion, FormDefinition } from "@/lib/cash/form-definition";
 // Phase 1 contract. Regenerate with `npm run db:types` against local Supabase
 // after future migrations. Never derive app roles from editable user metadata.
 import type { AccessRole } from "@/lib/auth/permissions";
@@ -43,6 +45,12 @@ export type Location = {
   name: string;
   slug: string;
   default_opening_cents?: number;
+  cash_form_id?: string | null;
+};
+export type PermissionGrant = {
+  user_id: string;
+  permission: string;
+  expires_at: string | null;
 };
 export type ManagedUser = {
   id: string;
@@ -58,7 +66,7 @@ export type AccessEvent = {
   id: string;
   actor_id: string;
   occurred_at: string;
-  entity_type: "user" | "role";
+  entity_type: "user" | "role" | "form";
   entity_id: string;
   reason: string;
   before_values: unknown;
@@ -78,10 +86,14 @@ export type Database = {
           },
         ];
       };
+      cash_form_versions: Table<FormVersion>;
+      daily_summaries: Table<DailySummary>;
+      feedback: Table<Feedback>;
       locations: Table<Location>;
       location_memberships: Table<{ user_id: string; location_id: string }>;
       app_roles: Table<AccessRole>;
       access_events: Table<AccessEvent>;
+      user_permission_grants: Table<PermissionGrant>;
       cash_closings: Table<CashClosing>;
       cash_count_lines: Table<{
         closing_id: string;
@@ -93,6 +105,29 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      send_feedback: {
+        Args: {
+          p_id: string;
+          p_location: string | null;
+          p_kind: string;
+          p_title: string;
+          p_description: string;
+        };
+        Returns: string;
+      };
+      update_feedback: {
+        Args: { p_id: string; p_version: number; p_status: string };
+        Returns: undefined;
+      };
+      save_daily_summary: {
+        Args: {
+          p_location: string;
+          p_date: string;
+          p_version: number;
+          p_payload: DailyInput;
+        };
+        Returns: DailySummary;
+      };
       save_cash_closing: {
         Args: {
           p_id: string;
@@ -111,6 +146,24 @@ export type Database = {
           p_reason: string | null;
         };
         Returns: CashSnapshot;
+      };
+      admin_save_user_grants: {
+        Args: {
+          p_user_id: string;
+          p_grants: { permission: string; expires_at: string | null }[];
+          p_expected_version: number;
+          p_reason: string;
+        };
+        Returns: undefined;
+      };
+      admin_publish_cash_form: {
+        Args: {
+          p_location_id: string;
+          p_definition: FormDefinition;
+          p_expected_id: string | null;
+          p_reason: string;
+        };
+        Returns: string;
       };
       admin_list_users: { Args: Record<string, never>; Returns: ManagedUser[] };
       admin_save_user: {

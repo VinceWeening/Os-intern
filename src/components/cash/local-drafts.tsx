@@ -2,21 +2,16 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  LOCAL_PREFIX,
-  readLocalDraft,
-  localKey,
+  tidyLocalDrafts,
+  removeLocalDraft,
   type LocalDraft,
 } from "@/lib/cash/local-draft";
 export function LocalDrafts({ userId }: { userId: string }) {
   const [drafts, setDrafts] = useState<LocalDraft[]>([]);
   useEffect(() => {
     try {
-      setDrafts(
-        Object.keys(localStorage)
-          .filter((key) => key.startsWith(`${LOCAL_PREFIX}${userId}:`))
-          .map((key) => readLocalDraft(localStorage.getItem(key), userId))
-          .filter((item): item is LocalDraft => Boolean(item)),
-      );
+      const latest = tidyLocalDrafts(localStorage, userId);
+      setDrafts(latest ? [latest] : []);
     } catch {
       /* Browser storage may be disabled. */
     }
@@ -24,7 +19,12 @@ export function LocalDrafts({ userId }: { userId: string }) {
   if (!drafts.length) return null;
   return (
     <section className="notice">
-      <strong>Niet centraal opgeslagen invoer op dit apparaat</strong>
+      <strong>Laatste lokale herstelkopie op dit apparaat</strong>
+      <p>
+        Maximaal één herstelkopie per gebruiker. Een nieuwe telling vervangt de
+        vorige lokale invoer. Niet opgeslagen invoer vervalt na 3 dagen. Bewaar
+        een telling bewust met ‘Concept opslaan’.
+      </p>
       {drafts.map((item) => (
         <div key={item.id}>
           <p>
@@ -44,7 +44,7 @@ export function LocalDrafts({ userId }: { userId: string }) {
                   "Deze lokale invoer verwijderen? Niet centraal opgeslagen wijzigingen gaan dan verloren.",
                 )
               ) {
-                localStorage.removeItem(localKey(userId, item.id));
+                removeLocalDraft(localStorage, userId, item.id);
                 setDrafts((old) => old.filter((d) => d.id !== item.id));
               }
             }}

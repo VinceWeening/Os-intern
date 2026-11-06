@@ -19,17 +19,22 @@ export default async function NewClosing({
   const params = await searchParams;
   const restoring = /^[0-9a-f-]{36}$/i.test(params.herstel ?? "");
   const id = restoring ? params.herstel! : randomUUID();
-  const [{ data: locations, error }, { data: closing }, { data: lines }] =
-    await Promise.all([
-      supabase.from("locations").select("*").order("name"),
-      restoring
-        ? supabase.from("cash_closings").select("*").eq("id", id).maybeSingle()
-        : Promise.resolve({ data: null }),
-      restoring
-        ? supabase.from("cash_count_lines").select("*").eq("closing_id", id)
-        : Promise.resolve({ data: null }),
-    ]);
-  if (error) throw new Error("LOCATIONS_UNAVAILABLE");
+  const [
+    { data: locations, error },
+    { data: closing },
+    { data: lines },
+    forms,
+  ] = await Promise.all([
+    supabase.from("locations").select("*").order("name"),
+    restoring
+      ? supabase.from("cash_closings").select("*").eq("id", id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    restoring
+      ? supabase.from("cash_count_lines").select("*").eq("closing_id", id)
+      : Promise.resolve({ data: null }),
+    supabase.from("cash_form_versions").select("*"),
+  ]);
+  if (error || forms.error) throw new Error("LOCATIONS_UNAVAILABLE");
   const staff = isSharedAccount(role)
     ? await loadStaff(
         supabase,
@@ -54,11 +59,11 @@ export default async function NewClosing({
     "";
   return (
     <>
-      <div className="page-heading no-print">
+      <div className="page-heading no-print cash-form-heading">
         <div>
           <span className="eyebrow">KASTELLING FORMULIER</span>
           <h1>
-            Nieuwe afslag<span>.</span>
+            Kastellingformulier<span>.</span>
           </h1>
           <p>Tel je geld, controleer de betaalwijzen en rond de avond af.</p>
         </div>
@@ -77,6 +82,7 @@ export default async function NewClosing({
       ) : (
         <CashForm
           key={id}
+          forms={forms.data ?? []}
           id={id}
           userId={user.id}
           name={initial?.closing.employee_name ?? profile.full_name}

@@ -67,3 +67,13 @@ Migration `20261101194150_explicit_management_conflicts.sql` corrigeert versieco
 Providerrequests hebben daarnaast een deadline van 12 seconden per verzoek. Schrijfacties worden niet automatisch herhaald; bij een onzekere uitkomst vraagt de UI gegevens te vernieuwen. Een afgebroken verbinding bewijst immers niet dat een write is teruggedraaid.
 
 De nieuwe beheerschermen zijn op desktop gecontroleerd. De Chrome-viewportoverride wijzigde de gemeten viewport niet, dus er is geen geslaagde mobiele browserproef voor deze uitbreiding geclaimd. Test op echte iPhone/iPad blijft onderdeel van de mobiele oplevering.
+
+## Persoonlijke extra rechten (2 november 2026)
+
+Via **Gebruikersbeheer → Bewerken → Extra rechten voor deze gebruiker** kan een beheerder per recht kiezen tussen permanent en een eindmoment. Het invoermoment gebruikt de tijdzone van het apparaat en wordt als absoluut tijdstip opgeslagen; het bestaande eindmoment wordt ook in Amsterdamse tijd getoond.
+
+Dit blok heeft een eigen opslagknop en reden. Sla eventuele wijzigingen aan rol/vestigingen eerst met **Gebruiker opslaan** op. De extra rechten worden toegevoegd aan de opgeslagen rol. Uitvinken trekt alleen de persoonlijke uitzondering in; een recht dat de rol al geeft blijft bestaan. Vestigingstoegang, authenticator en blokkering blijven gelden. Beheerderstatus en gedeelde-kassacomputeridentiteit komen uitsluitend via de rol.
+
+De database controleert verval met de servertijd bij elke aanvraag. Er is geen taak of browserklok nodig die de rechten verwijdert. Een reeds geopend scherm kan zichtbaar blijven, maar een nieuwe gegevensaanvraag of schrijfactie controleert de actuele rechten opnieuw. Verlopen regels blijven zichtbaar tot de beheerder ze verwijdert of verlengt. Wijzigingen gebruiken dezelfde profielversie als het andere gebruikersbeheer en worden met actor, reden, voor- en nawaarden gelogd.
+
+De tabel `user_permission_grants` is alleen leesbaar voor de betreffende ingelogde medewerker of een beheerder, met geldige MFA. Schrijven kan uitsluitend via de beheerders-RPC. Tests omvatten onbevoegde writes, verval, intrekken, rolrechten behouden, vestigingsgrenzen en versieconflicten. Er zijn bij oplevering geen persoonlijke uitzonderingen aan bestaande gebruikers toegekend.

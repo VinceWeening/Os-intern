@@ -1,4 +1,9 @@
+import type { FormDefinition } from "@/lib/cash/form-definition";
+import defaultForm from "@/lib/cash/default-form.json";
+import { formulaLabel } from "@/lib/cash/presentation";
 import { BrandLogo } from "@/components/brand";
+import { CashOverview } from "./totals";
+import "./cash-sheet.css";
 import {
   DENOMINATIONS,
   MONEY_FIELDS,
@@ -39,7 +44,7 @@ function CountsTable({
       </thead>
       <tbody>
         {DENOMINATIONS.map((d) => (
-          <tr key={d}>
+          <tr key={d} className={payload.counts[d] ? "" : "is-zero"}>
             <td>{euro(d)}</td>
             <td>{payload.counts[d] ?? 0}</td>
             <td>{euro(d * (payload.counts[d] ?? 0))}</td>
@@ -73,16 +78,12 @@ export function CashSheet({
   status: string;
 }) {
   const totals = calculate(payload);
-  const field = (key: (typeof MONEY_FIELDS)[number]["key"]) =>
-    MONEY_FIELDS.find((f) => f.key === key)!;
-  const payments = [
-    "ideal_cents",
-    "cash",
-    "pax_cents",
-    "paynl_cents",
-    "shop_vouchers_cents",
-    "redeemed_vouchers_cents",
-  ] as const;
+  // Drafts from before configurable forms follow the standard calculation.
+  const definition = payload.form_schema ?? (defaultForm as FormDefinition);
+  const inputs = payload.form_schema
+    ? (payload.custom_inputs ?? {})
+    : Object.fromEntries(MONEY_FIELDS.map((f) => [f.key, payload[f.key]]));
+  const register = definition.fields.find((f) => f.key === "register");
   return (
     <section className="cash-sheet panel">
       <div className="sheet-heading">
@@ -105,91 +106,87 @@ export function CashSheet({
         </div>
         <div>
           <dt>Werkdatum</dt>
-          <dd>{payload.work_date}</dd>
+          <dd>
+            {new Date(`${payload.work_date}T12:00:00`).toLocaleDateString(
+              "nl-NL",
+              { weekday: "short", day: "numeric", month: "long", year: "numeric" },
+            )}
+          </dd>
         </div>
         <div>
           <dt>Status</dt>
           <dd>{status}</dd>
         </div>
       </dl>
-      <div className={`sheet-result ${resultTone(totals.result)}`}>
-        <span>{resultLabel(totals.result)}</span>
-        <strong>
-          {totals.result === null ? "—" : euro(Math.abs(totals.result))}
-        </strong>
-        <small>
-          In te vullen in de kassa: <b>{euro(totals.register)}</b>
-        </small>
-      </div>
-      <table className="cash-table payment-sheet">
-        <tbody>
-          <tr>
-            <th>{field("turnover_cents").label}</th>
-            <td>{euro(payload.turnover_cents)}</td>
-          </tr>
-          <tr>
-            <th>+ {field("sold_vouchers_cents").label}</th>
-            <td>{euro(payload.sold_vouchers_cents)}</td>
-          </tr>
-          <tr className="total-row">
-            <th>Totaal benodigd</th>
-            <td>{euro(totals.required)}</td>
-          </tr>
-          {payments.map((key) =>
-            key === "cash" ? (
-              <tr key={key}>
-                <th>− Contant geld</th>
-                <td>{euro(totals.cash)}</td>
-              </tr>
-            ) : (
-              <tr key={key}>
-                <th>− {field(key).label}</th>
-                <td>{euro(payload[key])}</td>
-              </tr>
-            ),
-          )}
-          <tr className={`total-row result-row ${resultTone(totals.result)}`}>
-            <th>{resultLabel(totals.result)}</th>
-            <td>
-              {totals.result === null ? "—" : euro(Math.abs(totals.result))}
-            </td>
-          </tr>
-          <tr className="total-row">
-            <th>In te vullen in de kassa</th>
-            <td>{euro(totals.register)}</td>
-          </tr>
-        </tbody>
-      </table>
-      <details className="sheet-counts no-print">
-        <summary>
-          <span>Geteld geld per coupure</span>
-          <strong>{euro(totals.counted)}</strong>
-        </summary>
-        <CountsTable payload={payload} totals={totals} />
-      </details>
-      <div className="print-only sheet-counts-print">
-        <CountsTable payload={payload} totals={totals} />
-      </div>
-      {payload.opening_reason ? (
-        <div className="sheet-notes">
-          <h3>Reden afwijkend startsaldo</h3>
-          <p>{payload.opening_reason}</p>
+      <div className="sheet-tiles">
+        <div className={`sheet-result ${resultTone(totals.result)}`}>
+          <span>{resultLabel(totals.result)}</span>
+          <strong>
+            {totals.result === null ? "—" : euro(Math.abs(totals.result))}
+          </strong>
+          <small>
+            {totals.result === null
+              ? "Nog niet alle bedragen zijn ingevuld."
+              : totals.result > 0
+                ? "Er is minder geld dan de omzet vraagt."
+                : totals.result < 0
+                  ? "Er is meer geld dan de omzet vraagt."
+                  : "Geld en omzet sluiten precies."}
+          </small>
         </div>
-      ) : null}
-      {payload.difference_explanation &&
-      totals.result !== null &&
-      totals.result > 0 ? (
-        <div className="sheet-notes">
-          <h3>Toelichting tekort</h3>
-          <p>{payload.difference_explanation}</p>
+        <div className="sheet-register">
+          <span>In te vullen in de kassa</span>
+          <strong>{euro(totals.register)}</strong>
+          {register ? (
+            <small>{formulaLabel(register, definition.fields)}</small>
+          ) : null}
         </div>
-      ) : null}
-      <div className="sheet-notes">
-        <h3>Opmerkingen</h3>
-        <p>{payload.notes || "Geen opmerkingen."}</p>
+      </div>
+      <div className="sheet-body">
+        <div className="sheet-calc">
+          <h3>Berekening</h3>
+          <CashOverview
+            definition={definition}
+            inputs={inputs}
+            totals={totals}
+            showRegister={false}
+          />
+        </div>
+        <div className="sheet-side">
+          <details className="sheet-counts no-print" open>
+            <summary>
+              <span>Geteld geld per coupure</span>
+              <strong>{euro(totals.counted)}</strong>
+            </summary>
+            <CountsTable payload={payload} totals={totals} />
+          </details>
+          <div className="print-only sheet-counts-print">
+            <CountsTable payload={payload} totals={totals} />
+          </div>
+          {payload.opening_reason ? (
+            <div className="sheet-notes">
+              <h3>Reden afwijkend startsaldo</h3>
+              <p>{payload.opening_reason}</p>
+            </div>
+          ) : null}
+          {payload.difference_explanation &&
+          totals.result !== null &&
+          totals.result > 0 ? (
+            <div className="sheet-notes">
+              <h3>Toelichting tekort</h3>
+              <p>{payload.difference_explanation}</p>
+            </div>
+          ) : null}
+          <div className="sheet-notes">
+            <h3>Opmerkingen</h3>
+            <p>{payload.notes || "Geen opmerkingen."}</p>
+          </div>
+        </div>
       </div>
       <p className="form-help">
-        In te vullen in de kassa = PAX + Pay.nl + contant geld + startsaldo.
+        {payload.form_schema
+          ? "Bedragen berekend met de bij deze telling opgeslagen formulierinstellingen."
+          : "In te vullen in de kassa = PAX + Pay.nl + contant geld + startsaldo."}
       </p>
     </section>
   );

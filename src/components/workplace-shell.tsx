@@ -13,13 +13,15 @@ type Props = {
   canManage?: boolean;
   cashAllowed?: boolean;
   canReport?: boolean;
+  canDaily?: boolean;
 };
 
 // Simple line icons, drawn in the current text colour.
 const ICONS = {
   cash: "M6 3h12v18l-3-2-3 2-3-2-3 2V3zM9 8h6M9 12h6M9 16h3",
   report: "M4 20V10M10 20V4M16 20v-7M22 20H2",
-  users: "M16 19v-1a4 4 0 0 0-8 0v1M12 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM20 19v-1a3 3 0 0 0-2.5-3M17 5.5a3 3 0 0 1 0 5",
+  users:
+    "M16 19v-1a4 4 0 0 0-8 0v1M12 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM20 19v-1a3 3 0 0 0-2.5-3M17 5.5a3 3 0 0 1 0 5",
   account: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0",
 } as const;
 function Icon({ name }: { name: keyof typeof ICONS }) {
@@ -41,8 +43,9 @@ function Icon({ name }: { name: keyof typeof ICONS }) {
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/);
-  return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : ""))
-    .toUpperCase();
+  return (
+    parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : "")
+  ).toUpperCase();
 }
 
 export function WorkplaceShell({
@@ -54,6 +57,7 @@ export function WorkplaceShell({
   canManage = false,
   cashAllowed = true,
   canReport = false,
+  canDaily = false,
 }: Props) {
   const current = (section: NonNullable<Props["active"]>) =>
     active === undefined ? undefined : active === section;
@@ -83,14 +87,28 @@ export function WorkplaceShell({
             >
               <Icon name="cash" />
               <span className="nav-full">Kassa-afslag</span>
-              <span className="nav-short" aria-hidden="true">Afslag</span>
+              <span className="nav-short" aria-hidden="true">
+                Afslag
+              </span>
             </NavLink>
           ) : null}
+          {canDaily ? (
+            <NavLink href="/dagoverzicht" match="/dagoverzicht">
+              <Icon name="cash" />
+              <span className="nav-full">Dagoverzicht</span>
+              <span className="nav-short" aria-hidden="true">
+                Dag
+              </span>
+            </NavLink>
+          ) : null}
+
           {canReport ? (
             <NavLink href="/rapportage" match="/rapportage">
               <Icon name="report" />
               <span className="nav-full">Rapportage</span>
-              <span className="nav-short" aria-hidden="true">Rapport</span>
+              <span className="nav-short" aria-hidden="true">
+                Rapport
+              </span>
             </NavLink>
           ) : null}
           {canManage ? (
@@ -101,7 +119,18 @@ export function WorkplaceShell({
             >
               <Icon name="users" />
               <span className="nav-full">Gebruikersbeheer</span>
-              <span className="nav-short" aria-hidden="true">Gebruikers</span>
+              <span className="nav-short" aria-hidden="true">
+                Gebruikers
+              </span>
+            </NavLink>
+          ) : null}
+          {canManage ? (
+            <NavLink href="/formulierbeheer" match="/formulierbeheer">
+              <Icon name="cash" />
+              <span className="nav-full">Kasformulier instellen</span>
+              <span className="nav-short" aria-hidden="true">
+                Formulier
+              </span>
             </NavLink>
           ) : null}
           <span className="nav-separator" aria-hidden="true" />
@@ -111,8 +140,10 @@ export function WorkplaceShell({
             current={current("security")}
           >
             <Icon name="account" />
-              <span className="nav-full">Mijn account</span>
-              <span className="nav-short" aria-hidden="true">Account</span>
+            <span className="nav-full">Mijn account</span>
+            <span className="nav-short" aria-hidden="true">
+              Account
+            </span>
           </NavLink>
         </nav>
         <div className="sidebar-footer">

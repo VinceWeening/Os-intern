@@ -1,4 +1,7 @@
-# Implementatieplan
+# Oorspronkelijk implementatieplan (1 november 2026)
+
+Actuele status en vervolgstappen: [ROADMAP.md](ROADMAP.md), bijgewerkt 3 november 2026. Hieronder staat het oorspronkelijke fasenplan; uitspraken als “alleen fase 1” zijn historisch en beschrijven niet meer de volledige huidige code.
+
 
 1 november 2026. Alleen fase 1 bouwen; na elke fase stoppen voor review.
 

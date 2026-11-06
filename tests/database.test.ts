@@ -450,3 +450,184 @@ describe('shared OS computer account', () => {
     expect(result.closing.employee_id).toBe(EMPLOYEE);
   });
 });
+
+describe('personal permission grants', () => {
+  beforeEach(async () => { await db.exec('begin'); });
+  async function save(grants: unknown, version = 1) {
+    await become(ADMIN);
+    await db.query('select public.admin_save_user_grants($1,$2,$3,$4)', [EMPLOYEE, JSON.stringify(grants), version, 'Fictieve tijdelijke vervanging']);
+  }
+  it('adds permanent rights without changing the role or location access', async () => {
+    await save([{ permission: 'cash.review', expires_at: null }]);
+    await become(EMPLOYEE);
+    expect((await db.query<{ allowed: boolean }>("select private.has_permission('cash.review') allowed")).rows[0].allowed).toBe(true);
+    expect((await db.query('select * from public.locations')).rows).toHaveLength(1);
+    expect((await db.query<{ allowed: boolean }>('select private.is_admin() allowed')).rows[0].allowed).toBe(false);
+  });
+  it('expires by database time, preserves role rights and audits revocation', async () => {
+    await save([{ permission: 'cash.review', expires_at: '2099-01-01T12:00:00Z' }]);
+    await become(EMPLOYEE);
+    expect((await db.query<{ allowed: boolean }>("select private.has_permission('cash.review') allowed")).rows[0].allowed).toBe(true);
+    await db.exec('reset role');
+    await db.query("update public.user_permission_grants set expires_at='2000-01-01' where user_id=$1", [EMPLOYEE]);
+    await become(EMPLOYEE);
+    expect((await db.query<{ allowed: boolean }>("select private.has_permission('cash.review') allowed")).rows[0].allowed).toBe(false);
+    expect((await db.query<{ allowed: boolean }>("select private.has_permission('cash.submit') allowed")).rows[0].allowed).toBe(true);
+    await save([], 2);
+    expect((await db.query("select * from public.access_events where after_values ? 'extra_permissions'")).rows).toHaveLength(2);
+  });
+  it('prevents managers granting themselves extra rights', async () => {
+    await become(MANAGER);
+    await expect(db.query('select public.admin_save_user_grants($1,$2,1,$3)', [MANAGER, '[]', 'Niet toegestaan'])).rejects.toThrow();
+  });
+  it('rejects stale edits', async () => {
+    await save([]);
+    await expect(save([], 1)).rejects.toThrow(/VERSION_CONFLICT/);
+  });
+  it.each([
+    [{ permission: 'cash.review', expires_at: '2000-01-01T12:00:00Z' }],
+    [{ permission: 'admin', expires_at: null }],
+    [{ permission: 'cash.shared_account', expires_at: null }],
+  ])('rejects invalid grant %j', async grant => {
+    await expect(save([grant])).rejects.toThrow();
+  });
+  it('hides grants of other users and denies direct writes and AAL1 access', async () => {
+    await save([{ permission: 'cash.review', expires_at: null }]);
+    await become(OTHER);
+    expect((await db.query('select * from public.user_permission_grants')).rows).toHaveLength(0);
+    await become(EMPLOYEE, 'aal1');
+    expect((await db.query('select * from public.user_permission_grants')).rows).toHaveLength(0);
+    expect((await db.query<{ allowed: boolean }>("select private.has_permission('cash.review') allowed")).rows[0].allowed).toBe(false);
+    await become(EMPLOYEE);
+    await expect(db.query('delete from public.user_permission_grants')).rejects.toThrow(/permission denied/);
+  });
+});
+
+describe('versioned configurable cash forms', () => {
+  beforeEach(async () => { await db.exec('begin'); });
+  function definition(): import('@/lib/cash/form-definition').FormDefinition { return { opening: 15000, fields: [
+    { key:'income',label:'Fictieve omzet',kind:'input',required:true,minimum:100,default:10000,terms:[] },
+    { key:'terminal',label:'Fictieve betaalwijze',kind:'input',required:true,minimum:0,default:0,terms:[] },
+    ...[
+      ['cash','Contant',[['counted',1],['opening',-1]]],
+      ['required','Benodigd',[['income',1]]],
+      ['result','Resultaat',[['required',1],['terminal',-1],['cash',-1]]],
+      ['register','Kassabedrag',[['counted',1],['terminal',1]]],
+    ].map(([key,label,terms]) => ({key:String(key),label:String(label),kind:'calculated' as const,required:true,minimum:null,default:null,terms:(terms as [string,number][]).map(([key,sign])=>({key,sign:sign as 1|-1}))})),
+  ] }; }
+  async function publish() {
+    await become(ADMIN);
+    const old = (await db.query<{cash_form_id:string}>('select cash_form_id from public.locations where id=$1',[HEILOO])).rows[0].cash_form_id;
+    return (await db.query<{id:string}>('select public.admin_publish_cash_form($1,$2,$3,$4) id',[HEILOO,JSON.stringify(definition()),old,'Fictief formulier voor integratietest'])).rows[0].id;
+  }
+  function payload(formId:string,inputs:object={income:10000,terminal:5000}) { return { location_id:HEILOO,work_date:'2098-01-01',counts:{10000:2},opening_cents:15000,opening_reason:'',difference_explanation:'',notes:'Fictieve configuratietest',form_definition_id:formId,custom_inputs:inputs }; }
+  async function save(id:string,formId:string,version=0,final=true,inputs?:object,key=randomUUID()) {
+    return (await db.query<{snapshot:CashSnapshot}>('select public.save_cash_closing($1,$2,$3,$4,$5) snapshot',[id,version,JSON.stringify(payload(formId,inputs)),final,key])).rows[0].snapshot;
+  }
+  it('computes new fields on the server and retains historical rules after publication',async()=>{
+    const formId=await publish(); await become(EMPLOYEE);
+    const id=randomUUID(), key=randomUUID();
+    const first=await save(id,formId,0,true,undefined,key);
+    expect(first.closing).toMatchObject({cash_cents:5000,required_cents:10000,result_cents:0,register_cents:25000,form_definition_id:formId,status:'submitted'});
+    await publish(); await become(EMPLOYEE);
+    const retry=await save(id,formId,0,true,undefined,key);
+    expect(retry.closing.version).toBe(first.closing.version);
+    expect(retry.closing.form_definition_id).toBe(formId);
+    expect((await db.query('select * from public.cash_form_versions where id=$1',[formId])).rows).toHaveLength(1);
+  });
+  it('keeps a saved draft on its original definition after a newer publication',async()=>{
+    const formId=await publish(); await become(EMPLOYEE); const id=randomUUID();
+    await save(id,formId,0,false); await publish(); await become(EMPLOYEE);
+    expect((await save(id,formId,1)).closing.status).toBe('submitted');
+  });
+  it('enforces configured minimums and required amounts in PostgreSQL',async()=>{
+    const formId=await publish(); await become(EMPLOYEE);
+    await expect(save(randomUUID(),formId,0,true,{income:0,terminal:0})).rejects.toThrow(/FORM_VALIDATION_FAILED/);
+  });
+  it('rejects circular and missing references at publication',async()=>{
+    await become(ADMIN); const invalid=definition(); invalid.fields[2].terms=[{key:'result',sign:1}];
+    const old=(await db.query<{cash_form_id:string}>('select cash_form_id from public.locations where id=$1',[HEILOO])).rows[0].cash_form_id;
+    await expect(db.query('select public.admin_publish_cash_form($1,$2,$3,$4)',[HEILOO,JSON.stringify(invalid),old,'Fictieve ongeldige regel'])).rejects.toThrow(/INVALID_FORM/);
+  });
+  it('rejects non-admin publication and direct form modification',async()=>{
+    await become(MANAGER);
+    await expect(db.query('select public.admin_publish_cash_form($1,$2,null,$3)',[HEILOO,JSON.stringify(definition()),'Geen beheerder'])).rejects.toThrow(/ADMIN_REQUIRED/);
+  });
+  it('rejects new closings using an outdated version',async()=>{
+    const old=await publish(); await publish(); await become(EMPLOYEE);
+    await expect(save(randomUUID(),old)).rejects.toThrow(/FORM_CHANGED/);
+  });
+  it('rejects missing required inputs on the server',async()=>{
+    const formId=await publish(); await become(EMPLOYEE);
+    await expect(save(randomUUID(),formId,0,true,{income:10000})).rejects.toThrow(/FORM_VALIDATION_FAILED/);
+  });
+  it('does not allow the legacy endpoint to bypass a customized form',async()=>{
+    const formId=await publish(); await become(EMPLOYEE);
+    const value={...payload(formId),form_definition_id:null};
+    await expect(db.query('select public.save_cash_closing($1,0,$2,true,$3)',[randomUUID(),JSON.stringify(value),randomUUID()])).rejects.toThrow(/FORM_CHANGED/);
+  });
+  it('rejects publication from a stale editor',async()=>{
+    const old=await publish(); await publish(); await become(ADMIN);
+    await expect(db.query('select public.admin_publish_cash_form($1,$2,$3,$4)',[HEILOO,JSON.stringify(definition()),old,'Fictieve gelijktijdige wijziging'])).rejects.toThrow(/VERSION_CONFLICT/);
+  });
+});
+
+describe('three-day central draft retention',()=>{
+ beforeEach(async()=>{await db.exec('begin');});
+ it('purges only inactive, never-submitted drafts and their child rows',async()=>{
+  const id=randomUUID(),recent=randomUUID(),reopened=randomUUID();
+  for(const target of [id,recent,reopened]) await db.query("insert into public.cash_closings(id,location_id,work_date,employee_id,employee_name,updated_at) values($1,$2,'2099-01-01',$3,'Fictief',now()-interval '4 days')",[target,HEILOO,EMPLOYEE]);
+  await db.query('insert into public.cash_count_lines values($1,100,2,default)',[id]);
+  await db.query("insert into public.closing_events(closing_id,actor_id,action,after_values) values($1,$2,'created','{}')",[id,EMPLOYEE]);
+  await db.query('update public.cash_closings set updated_at=now() where id=$1',[recent]);
+  await db.query("update public.cash_closings set first_submitted_at=now()-interval '5 days' where id=$1",[reopened]);
+  await db.query('select private.purge_expired_cash_drafts()');
+  expect((await db.query('select id from public.cash_closings where id=$1',[id])).rows).toHaveLength(0);
+  expect((await db.query('select id from public.cash_closings where id=any($1::uuid[])',[[recent,reopened]])).rows).toHaveLength(2);
+  expect((await db.query('select * from public.closing_events where closing_id=$1',[id])).rows).toHaveLength(0);
+ });
+ it('does not expose the purge function to application accounts',async()=>{
+  await become(ADMIN);await expect(db.query('select private.purge_expired_cash_drafts()')).rejects.toThrow(/permission denied/);
+ });
+});
+
+describe('feedback and daily overview access',()=>{
+ beforeEach(async()=>{await db.exec('begin');});
+ const daily={notes:'FICTIEVE DAGNOTITIE',diners:'Testpersoon A',rides:[{car:'Testauto A',driver:'Testpersoon A',passengers:'Testpersoon B'}],waste:[{product:'Fictieve kipsaté',quantity:'2 porties',reason:'Testvoorbeeld'}]};
+ async function saveDay(location=HEILOO,version=0,values:unknown=daily){return (await db.query<{saved:{version:number;notes:string}}>('select public.save_daily_summary($1,$2,$3,$4) saved',[location,'2099-01-01',version,JSON.stringify(values)])).rows[0].saved;}
+ async function dayRole(){const id=randomUUID();await db.query("insert into public.app_roles(id,name,permissions) values($1,'Fictieve dagrol',array['day.open','day.edit'])",[id]);await db.query('update public.profiles set access_role_id=$1 where id=$2',[id,EMPLOYEE]);}
+ it('allows staff to send feedback once and read only their own feedback',async()=>{
+  const id=randomUUID();await become(EMPLOYEE);
+  for(let i=0;i<2;i++)await db.query('select public.send_feedback($1,$2,$3,$4,$5)',[id,HEILOO,'idea','Fictief idee','Fictieve omschrijving']);
+  expect((await db.query('select * from public.feedback')).rows).toHaveLength(1);await become(OTHER);expect((await db.query('select * from public.feedback')).rows).toHaveLength(0);await become(ADMIN);expect((await db.query('select * from public.feedback')).rows).toHaveLength(1);
+ });
+ it('restricts feedback status changes to administrators',async()=>{
+  await become(EMPLOYEE);await expect(db.query("select public.update_feedback($1,1,'done')",[randomUUID()])).rejects.toThrow(/ADMIN_REQUIRED/);
+ });
+ it('rejects feedback for a location the sender cannot access',async()=>{
+  await become(EMPLOYEE);await expect(db.query("select public.send_feedback($1,$2,'bug','Fictieve fout','Fictieve omschrijving')",[randomUUID(),HHW])).rejects.toThrow(/FORBIDDEN/);
+ });
+ it('stores one day per location/date and rejects stale writes',async()=>{
+  await become(ADMIN);expect((await saveDay()).version).toBe(1);expect((await saveDay(HEILOO,1,{...daily,notes:'Gewijzigde fictieve notitie'})).version).toBe(2);
+  expect((await db.query('select * from public.daily_events')).rows).toHaveLength(2);await expect(saveDay(HEILOO,1)).rejects.toThrow(/VERSION_CONFLICT/);
+ });
+ it('enforces day permissions and assigned locations without granting cash access',async()=>{
+  await dayRole();await become(ADMIN);await saveDay(HEILOO);await saveDay(HHW);await become(EMPLOYEE);
+  expect((await db.query('select * from public.daily_summaries')).rows).toHaveLength(1);
+  expect((await db.query('select * from public.daily_events')).rows).toHaveLength(1);
+  expect((await db.query<{allowed:boolean}>("select private.has_permission('cash.open') allowed")).rows[0].allowed).toBe(false);
+  await expect(saveDay(HHW,1)).rejects.toThrow(/FORBIDDEN/);
+ });
+ it('requires day edit permission rather than a role name',async()=>{
+  await become(MANAGER);await expect(saveDay()).rejects.toThrow(/FORBIDDEN/);
+ });
+ it('rejects malformed waste entries and does not partially save',async()=>{
+  await become(ADMIN);await expect(saveDay(HEILOO,0,{...daily,waste:[{product:'Test',quantity:'',reason:''}]})).rejects.toThrow(/INVALID_INPUT/);
+ });
+ it('allows personal day access without opening the cash module',async()=>{
+  await become(ADMIN);await db.query("select public.admin_save_user_grants($1,$2,1,'Fictieve vervanging')",[EMPLOYEE,JSON.stringify([{permission:'day.edit',expires_at:null}])]);await become(EMPLOYEE);
+  expect((await db.query<{allowed:boolean}>("select private.has_permission('day.open') allowed")).rows[0].allowed).toBe(true);
+  expect((await db.query<{allowed:boolean}>("select private.has_permission('cash.review') allowed")).rows[0].allowed).toBe(false);
+  expect((await saveDay()).version).toBe(1);
+ });
+});

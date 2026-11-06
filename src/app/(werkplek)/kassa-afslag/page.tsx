@@ -68,6 +68,7 @@ export default async function CashPage({
           </Link>
         ) : null}
       </div>
+      <p className="form-help">Concepten die nog nooit zijn ingediend worden na 3 dagen zonder wijziging automatisch opgeruimd. Ingediende en heropende afsluitingen blijven bewaard.</p>
       {filters.melding === "ingediend" ||
       filters.melding === "gecontroleerd" ? (
         <p className="notice success" role="status">
